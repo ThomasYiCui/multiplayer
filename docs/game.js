@@ -90,11 +90,14 @@ class Game {
 
         this.network.onRoomJoined = (data) => {
             this.selfId = data.selfId;
-            this.players = data.players;
+            this.players = {};
 
-            for (const id in this.players) {
-                this.players[id].targetX = this.players[id].x;
-                this.players[id].targetY = this.players[id].y;
+            for (const id in data.players) {
+                const p = data.players[id];
+                this.players[id] = new Player(p.x, p.y, p.id, p.name, {
+                    isSelf: p.id === this.selfId,
+                    color: p.color
+                });
             }
 
             document.getElementById('lobbyScreen').style.display = 'none';
@@ -102,10 +105,11 @@ class Game {
             document.getElementById('displayRoomCode').innerText = data.roomCode;
         };
 
-        this.network.onPlayerJoined = (player) => {
-            player.targetX = player.x;
-            player.targetY = player.y;
-            this.players[player.id] = player;
+        this.network.onPlayerJoined = (p) => {
+            this.players[p.id] = new Player(p.x, p.y, p.id, p.name, {
+                isSelf: false,
+                color: p.color
+            });
         };
 
         this.network.onPlayerMoved = (data) => {
