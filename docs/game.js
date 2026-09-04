@@ -24,7 +24,8 @@ class Game {
         this.setupNetwork();
         this.setupInputs();
 
-        requestAnimationFrame(() => this.loop());
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
     }
 
     setupUI() {
@@ -174,11 +175,15 @@ class Game {
         }, false);
     }
 
-    loop() {
+    loop(timestamp = performance.now()) {
+        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+        this.lastTime = timestamp;
+
         for (const id in this.players) {
             const player = this.players[id];
             player.update(
                 {
+                    dt: dt,
                     keys: this.keys,
                     clicked: this.clicked,
                     dragged: this.dragged,
@@ -199,7 +204,7 @@ class Game {
             this.players[id].display(this.ctx);
         }
 
-        requestAnimationFrame(() => this.loop());
+        requestAnimationFrame((t) => this.loop(t));
     }
 
     drawGrid() {

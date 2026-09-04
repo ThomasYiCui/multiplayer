@@ -10,7 +10,7 @@ class Player {
         this.id = id;
         this.isSelf = opt.isSelf || false;
         this.playerName = playerName;
-        this.speed = 5;
+        this.speed = 300; // Pixels per second
         this.size = 20;
         this.color = opt.color || `rgb(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)})`
     }
@@ -44,22 +44,25 @@ class Player {
 
 
     update(input, game) {
+        const dt = input.dt || 0.016;
+        const moveDist = this.speed * dt;
+
         if (this.isSelf) {
             let moved = false;
             if (input.keys["KeyA"] || input.keys["ArrowLeft"]) {
-                this.x -= this.speed;
+                this.x -= moveDist;
                 moved = true;
             }
             if (input.keys["KeyD"] || input.keys["ArrowRight"]) {
-                this.x += this.speed;
+                this.x += moveDist;
                 moved = true;
             }
             if (input.keys["KeyW"] || input.keys["ArrowUp"]) {
-                this.y -= this.speed;
+                this.y -= moveDist;
                 moved = true;
             }
             if (input.keys["KeyS"] || input.keys["ArrowDown"]) {
-                this.y += this.speed;
+                this.y += moveDist;
                 moved = true;
             }
 
@@ -84,8 +87,9 @@ class Player {
         }
         if (!this.isSelf) {
             if (this.targetX !== undefined && this.targetY !== undefined) {
-                this.x += (this.targetX - this.x) * 0.25;
-                this.y += (this.targetY - this.y) * 0.25;
+                const lerpRate = Math.min(1, 15 * dt);
+                this.x += (this.targetX - this.x) * lerpRate;
+                this.y += (this.targetY - this.y) * lerpRate;
             }
         }
     }
