@@ -6,7 +6,7 @@ class Weapon {
     }
 
     display(ctx) {
-        // 2 lines: Move to player center and rotate towards mouse!
+        // 2-line transform: move to player position and rotate towards pointing angle
         ctx.save();
         ctx.translate(this.player.x, this.player.y);
         ctx.rotate(this.player.r + Math.PI);
