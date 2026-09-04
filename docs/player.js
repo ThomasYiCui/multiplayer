@@ -4,6 +4,7 @@ class Player {
         this.y = y;
         this.mouseX = 0;
         this.mouseY = 0;
+        this.weapon = new Weapon(this, "Iron Sword")
         this.r = 0;
         this.targetX = x;
         this.targetY = y;
@@ -50,80 +51,17 @@ class Player {
         ctx.fillText(tag, this.x, barY - 4);
 
         // 2. Body Circle
-        ctx.fillStyle = 'rgb(252, 219, 154)';
+        ctx.fillStyle = 'rgb(252, 219, 154)'
         ctx.beginPath();
         ctx.ellipse(this.x, this.y, this.size, this.size, 0, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-
-        // 3. Sword & Hands (Rotated towards pointing angle)
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.r + Math.PI);
-
-        // --- SWORD BLADE ---
-        ctx.beginPath();
-        ctx.moveTo(54, -6);
-        ctx.lineTo(112, -6);
-        ctx.lineTo(129, 0);   // Sharp pointy tip
-        ctx.lineTo(112, 6);
-        ctx.lineTo(54, 6);
-        ctx.closePath();
-
-        // Steel blade fill
-        ctx.fillStyle = '#e2e8f0';
-        ctx.fill();
-        ctx.strokeStyle = '#000000';
+        ctx.strokeStyle = '#000000ff';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Blade center ridge highlight
-        ctx.beginPath();
-        ctx.moveTo(56, 0);
-        ctx.lineTo(122, 0);
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // --- CROSSGUARD ---
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(50, -14, 6, 28, 2) : ctx.rect(50, -14, 6, 28);
-        ctx.fill();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // --- HILT / GRIP ---
-        ctx.fillStyle = '#78350f';
-        ctx.fillRect(30, -3.5, 20, 7);
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(30, -3.5, 20, 7);
-
-        // --- POMMEL ---
-        ctx.fillStyle = '#f59e0b';
-        ctx.beginPath();
-        ctx.ellipse(28, 0, 4.5, 4.5, 0, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // --- HANDS (Holding Grip) ---
-        ctx.fillStyle = 'rgb(252, 219, 154)';
-        ctx.beginPath();
-        ctx.ellipse(40, 0, this.size * 0.35, this.size * 0.35, 0, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.restore();
-
-        ctx.restore();
+        if (this.weapon) {
+            this.weapon.display(ctx);
+        }
     }
 
     update(input, game) {
