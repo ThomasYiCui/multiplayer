@@ -14,7 +14,9 @@
     <div id="authScreen" class="screen">
         <div class="card auth-card">
             <h1>ThimiTuah's Title Card</h1>
-            <p class="subtitle">Pls gimmme money for servers</p>
+            <p class="subtitle">Pls gimmme money for servers<br>
+                *DON'T USE YOUR REAL PASSWORDS, I'LL HAVE ACCESS TO IT*
+            </p>
 
             <!-- Auth Switcher Tabs -->
             <div class="auth-tabs">
@@ -26,12 +28,14 @@
 
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="authUsername" placeholder="Enter username..." maxlength="16" autocomplete="username">
+                <input type="text" id="authUsername" placeholder="Enter username..." maxlength="16"
+                    autocomplete="username">
             </div>
 
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" id="authPassword" placeholder="Enter password..." maxlength="32" autocomplete="current-password">
+                <input type="password" id="authPassword" placeholder="Enter password..." maxlength="32"
+                    autocomplete="current-password">
             </div>
 
             <button id="authSubmitBtn" class="btn primary" style="margin-top: 8px;">Login</button>
@@ -48,7 +52,7 @@
             <header class="world-header">
                 <div>
                     <h2>Server Selection</h2>
-                    <p class="subtitle" style="margin-bottom: 0;">Select a server to connect (Max 50 players each)</p>
+                    <p class="subtitle" style="margin-bottom: 0;">Select a server</p>
                 </div>
                 <div class="user-pill">
                     <div class="user-pill-info">
@@ -71,16 +75,18 @@
         <!-- Top RPG HUD -->
         <div id="hudBar" class="game-hud">
             <div class="hud-left">
-                <span class="realm-badge" id="hudWorldName">Server 1</span>
+                <span class="realm-badge" id="hudWorldName">Aethelgard</span>
                 <span class="hud-stat" id="hudPlayerLevel">Lv. 1</span>
                 <div class="hud-hp-wrap">
                     <span class="hud-hp-label">HP</span>
-                    <div class="hud-hp-bg"><div class="hud-hp-fill" id="hudHpFill" style="width: 100%;"></div></div>
+                    <div class="hud-hp-bg">
+                        <div class="hud-hp-fill" id="hudHpFill" style="width: 100%;"></div>
+                    </div>
                     <span class="hud-hp-text" id="hudHpText">100 / 100</span>
                 </div>
                 <span class="hud-gold" id="hudGoldText">0 Gold</span>
             </div>
-            <button id="leaveWorldBtn" class="leave-btn">Leave Server</button>
+            <button id="leaveWorldBtn" class="leave-btn">Leave Realm</button>
         </div>
 
         <canvas id="gameCanvas"></canvas>

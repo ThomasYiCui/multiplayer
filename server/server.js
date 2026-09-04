@@ -103,7 +103,7 @@ async function createUser(username, hashedPassword) {
 }
 
 async function saveUserStats(userData) {
-    if (useMongo) {
+    if (useMongo && UserModel) {
         await UserModel.updateOne(
             { username: userData.username },
             {
@@ -122,6 +122,41 @@ async function saveUserStats(userData) {
         );
     } else {
         saveLocalUser(userData);
+    }
+}
+
+async function getAllUsers() {
+    try {
+        if (useMongo && UserModel) {
+            const list = await UserModel.find({}, { password: 0 }).lean();
+            return list.map(u => ({
+                username: u.username,
+                level: u.level || 1,
+                xp: u.xp || 0,
+                gold: u.gold || 0,
+                hp: u.hp || 100,
+                maxHp: u.maxHp || 100,
+                attack: u.attack || 10,
+                defense: u.defense || 5,
+                itemsCount: (u.inventory || []).length
+            }));
+        } else {
+            const db = getLocalUsers();
+            return Object.values(db).map(u => ({
+                username: u.username,
+                level: u.level || 1,
+                xp: u.xp || 0,
+                gold: u.gold || 0,
+                hp: u.hp || 100,
+                maxHp: u.maxHp || 100,
+                attack: u.attack || 10,
+                defense: u.defense || 5,
+                itemsCount: (u.inventory || []).length
+            }));
+        }
+    } catch (e) {
+        console.error('Error fetching all users:', e);
+        return [];
     }
 }
 
@@ -169,7 +204,7 @@ function formatUptime(seconds) {
 }
 
 // 3. STATS API & HTML DASHBOARD
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
     const memory = process.memoryUsage();
     const usedMB = (memory.rss / 1024 / 1024).toFixed(1);
 
@@ -178,15 +213,19 @@ app.get('/api/stats', (req, res) => {
         totalPlayers += Object.keys(WORLDS[id].players).length;
     }
 
+    const registeredUsers = await getAllUsers();
+
     res.json({
         status: 'Online',
         database: useMongo ? 'MongoDB Atlas' : 'Local Storage',
+        totalRegistered: registeredUsers.length,
         uptime: formatUptime(process.uptime()),
         totalPlayers,
         totalRooms: 3,
         memoryUsedMB: usedMB,
         totalMemoryMB: 512,
-        worlds: getWorldsList()
+        worlds: getWorldsList(),
+        users: registeredUsers
     });
 });
 
@@ -201,25 +240,28 @@ app.get('/', (req, res) => {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0b0f19; color: #f1f5f9; padding: 30px 20px; display: flex; justify-content: center; }
-    .container { max-width: 900px; width: 100%; }
+    .container { max-width: 960px; width: 100%; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
     h1 { font-size: 22px; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
     .header-links { display: flex; align-items: center; gap: 12px; }
     .play-link { background: #0284c7; color: white; text-decoration: none; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
     .status-badge { background: #064e3b; color: #34d399; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid #059669; }
     
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
     .card-title { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; }
-    .card-value { font-size: 28px; font-weight: 700; color: #f8fafc; }
+    .card-value { font-size: 26px; font-weight: 700; color: #f8fafc; }
     .progress-bg { background: #334155; border-radius: 6px; height: 8px; margin-top: 10px; overflow: hidden; }
     .progress-fill { background: #38bdf8; height: 100%; width: 0%; transition: width 0.3s ease; }
 
-    .table-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+    .table-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     th { text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid #334155; }
     td { padding: 12px; font-size: 14px; border-bottom: 1px solid #334155; }
     .room-badge { background: #0f172a; color: #38bdf8; padding: 4px 10px; border-radius: 6px; font-weight: bold; border: 1px solid #334155; }
+    .user-tag { color: #f8fafc; font-weight: 700; }
+    .lvl-tag { color: #38bdf8; font-weight: 700; }
+    .gold-tag { color: #fbbf24; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -239,7 +281,11 @@ app.get('/', (req, res) => {
       </div>
       <div class="card">
         <div class="card-title">Database</div>
-        <div class="card-value" style="font-size: 20px; padding-top: 6px;" id="dbStatus">Loading...</div>
+        <div class="card-value" style="font-size: 18px; padding-top: 6px;" id="dbStatus">Loading...</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Registered Accounts</div>
+        <div class="card-value" id="regCount">0</div>
       </div>
       <div class="card">
         <div class="card-title">RAM Usage</div>
@@ -248,7 +294,7 @@ app.get('/', (req, res) => {
       </div>
       <div class="card">
         <div class="card-title">Server Uptime</div>
-        <div class="card-value" style="font-size: 20px; padding-top: 6px;" id="uptimeValue">0s</div>
+        <div class="card-value" style="font-size: 18px; padding-top: 6px;" id="uptimeValue">0s</div>
       </div>
     </div>
 
@@ -267,6 +313,25 @@ app.get('/', (req, res) => {
         </tbody>
       </table>
     </div>
+
+    <div class="table-card">
+      <div class="card-title">MongoDB Registered Accounts & Player Stats</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Level</th>
+            <th>HP</th>
+            <th>Gold</th>
+            <th>ATK / DEF</th>
+            <th>Inventory Items</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody">
+          <tr><td colspan="6">Loading database users...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <script>
@@ -277,20 +342,37 @@ app.get('/', (req, res) => {
         
         document.getElementById('playerCount').innerText = data.totalPlayers;
         document.getElementById('dbStatus').innerText = data.database;
+        document.getElementById('regCount').innerText = data.totalRegistered || 0;
         document.getElementById('uptimeValue').innerText = data.uptime;
         
         const ramPercent = Math.min(100, ((data.memoryUsedMB / data.totalMemoryMB) * 100)).toFixed(0);
         document.getElementById('ramValue').innerText = data.memoryUsedMB + ' / ' + data.totalMemoryMB + ' MB';
         document.getElementById('ramBar').style.width = ramPercent + '%';
 
-        const tbody = document.getElementById('worldsTableBody');
-        tbody.innerHTML = data.worlds.map(w => \`
+        const tbodyWorlds = document.getElementById('worldsTableBody');
+        tbodyWorlds.innerHTML = data.worlds.map(w => \`
           <tr>
             <td><span class="room-badge">\${w.name}</span></td>
             <td>\${w.playerCount} / \${w.maxPlayers}</td>
             <td><span style="color: #34d399; font-weight: bold;">Open</span></td>
           </tr>
         \`).join('');
+
+        const tbodyUsers = document.getElementById('usersTableBody');
+        if (!data.users || data.users.length === 0) {
+          tbodyUsers.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #64748b;">No registered players yet. Register in game to create an entry!</td></tr>';
+        } else {
+          tbodyUsers.innerHTML = data.users.map(u => \`
+            <tr>
+              <td><span class="user-tag">\${u.username}</span></td>
+              <td><span class="lvl-tag">Lv. \${u.level}</span> (\${u.xp} XP)</td>
+              <td>\${u.hp} / \${u.maxHp}</td>
+              <td><span class="gold-tag">\${u.gold} Gold</span></td>
+              <td>\${u.attack} / \${u.defense}</td>
+              <td>\${u.itemsCount} items</td>
+            </tr>
+          \`).join('');
+        }
       } catch (err) {
         document.getElementById('statusBadge').innerText = 'Reconnecting...';
         document.getElementById('statusBadge').style.background = '#7f1d1d';
