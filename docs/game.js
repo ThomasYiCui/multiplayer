@@ -16,6 +16,11 @@ class Game {
         this.dragged = false;
         this.isOffline = false;
 
+        this.camera = {
+            x: 0,
+            y: 0,
+        }
+
         this.authMode = 'login'; // 'login' or 'register'
         this.currentUser = null;
         this.currentWorldName = '';
@@ -341,6 +346,20 @@ class Game {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
         this.lastTime = timestamp;
 
+        // Smooth camera follow target (self player)
+        const selfPlayer = this.players[this.selfId];
+        if (selfPlayer) {
+            const targetCamX = selfPlayer.x - this.canvas.width / 2;
+            const targetCamY = selfPlayer.y - this.canvas.height / 2;
+            const lerpRate = Math.min(1, 10 * dt);
+            this.camera.x += (targetCamX - this.camera.x) * lerpRate;
+            this.camera.y += (targetCamY - this.camera.y) * lerpRate;
+        }
+
+        // Convert screen mouse position to in-game world position
+        const worldMouseX = this.mouseX + this.camera.x;
+        const worldMouseY = this.mouseY + this.camera.y;
+
         for (const id in this.players) {
             const player = this.players[id];
             player.update(
@@ -350,16 +369,22 @@ class Game {
                     clicked: this.clicked,
                     dragged: this.dragged,
                     mouse: {
-                        x: this.mouseX,
-                        y: this.mouseY,
+                        x: worldMouseX,
+                        y: worldMouseY,
                     }
                 }, this);
         }
 
         this.clicked = false;
 
+        // Clear canvas
         this.ctx.fillStyle = '#0f172a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Apply camera offset transformation
+        this.ctx.save();
+        this.ctx.translate(-Math.round(this.camera.x), -Math.round(this.camera.y));
+
         this.drawGrid();
 
         // Render Walls
@@ -367,9 +392,12 @@ class Game {
             wall.display(this.ctx);
         }
 
+        // Render Players
         for (const id in this.players) {
             this.players[id].display(this.ctx);
         }
+
+        this.ctx.restore();
 
         requestAnimationFrame((t) => this.loop(t));
     }
@@ -379,16 +407,21 @@ class Game {
         this.ctx.lineWidth = 1;
         const size = 40;
 
-        for (let x = 0; x < this.canvas.width; x += size) {
+        const startX = Math.floor(this.camera.x / size) * size - size;
+        const endX = startX + this.canvas.width + size * 2;
+        const startY = Math.floor(this.camera.y / size) * size - size;
+        const endY = startY + this.canvas.height + size * 2;
+
+        for (let x = startX; x <= endX; x += size) {
             this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.moveTo(x, startY);
+            this.ctx.lineTo(x, endY);
             this.ctx.stroke();
         }
-        for (let y = 0; y < this.canvas.height; y += size) {
+        for (let y = startY; y <= endY; y += size) {
             this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.moveTo(startX, y);
+            this.ctx.lineTo(endX, y);
             this.ctx.stroke();
         }
     }
