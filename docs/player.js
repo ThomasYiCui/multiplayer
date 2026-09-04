@@ -58,10 +58,41 @@ class Player {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // 3. Sword & Hands (Rotated towards pointing angle)
+        // 3. Eyes, Sword & Hands (Rotated towards pointing angle)
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.r + Math.PI);
+
+        // --- EYES ---
+        // Left Eye
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.ellipse(8, -6, 3.5, 3.5, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Left Pupil
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.ellipse(9.5, -6, 1.8, 1.8, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Right Eye
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.ellipse(8, 6, 3.5, 3.5, 0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Right Pupil
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.ellipse(9.5, 6, 1.8, 1.8, 0, 0, 2 * Math.PI);
+        ctx.fill();
 
         // --- SWORD BLADE ---
         ctx.beginPath();
