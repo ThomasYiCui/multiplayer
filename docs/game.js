@@ -7,6 +7,7 @@ class Game {
         this.speed = 5;
         this.playerSize = 34; // Square dimensions
         this.keys = { up: false, down: false, left: false, right: false };
+        this.isOffline = false; // Flag for solo/offline dev testing
 
         // Connect to your live Render server
         const SERVER_URL = 'https://multiplayer-l8xd.onrender.com';
@@ -35,6 +36,40 @@ class Game {
             const name = nameInput.value.trim() || 'Player';
             this.network.joinRoom(code, name);
         });
+
+        // 🕹️ Offline Solo Dev Mode
+        document.getElementById('offlineBtn').addEventListener('click', () => {
+            const name = nameInput.value.trim() || 'SoloDev';
+            this.startOfflineMode(name);
+        });
+    }
+
+    startOfflineMode(playerName) {
+        this.isOffline = true;
+        this.selfId = 'solo-player';
+
+        // Spawn local player
+        this.players[this.selfId] = {
+            id: this.selfId,
+            name: playerName,
+            x: 400,
+            y: 300,
+            color: '#38bdf8'
+        };
+
+        // Spawn a dummy target bot for collision/testing
+        this.players['training-bot'] = {
+            id: 'training-bot',
+            name: 'Training Bot',
+            x: 250,
+            y: 300,
+            color: '#f43f5e'
+        };
+
+        // Switch to game canvas
+        document.getElementById('lobbyScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'flex';
+        document.getElementById('displayRoomCode').innerText = 'SOLO (DEV MODE)';
     }
 
     setupNetwork() {
@@ -117,7 +152,7 @@ class Game {
             if (this.keys.up && me.y > halfSize) { me.y -= this.speed; moved = true; }
             if (this.keys.down && me.y < this.canvas.height - halfSize) { me.y += this.speed; moved = true; }
 
-            if (moved) {
+            if (moved && !this.isOffline) {
                 this.network.sendMove(me.x, me.y);
             }
         }
