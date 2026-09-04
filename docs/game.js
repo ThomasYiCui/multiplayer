@@ -162,7 +162,6 @@ class Game {
                     <div class="world-theme-bar"></div>
                     <div>
                         <div class="world-card-title">${w.name}</div>
-                        <div class="world-card-desc">${w.description}</div>
                     </div>
                     <div>
                         <div class="world-meta">

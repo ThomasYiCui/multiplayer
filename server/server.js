@@ -130,21 +130,18 @@ const WORLDS = {
     'world-1': {
         id: 'world-1',
         name: 'Server 1',
-        description: 'Main Adventure Server',
         maxPlayers: 50,
         players: {}
     },
     'world-2': {
         id: 'world-2',
         name: 'Server 2',
-        description: 'Secondary Adventure Server',
         maxPlayers: 50,
         players: {}
     },
     'world-3': {
         id: 'world-3',
         name: 'Server 3',
-        description: 'Tertiary Adventure Server',
         maxPlayers: 50,
         players: {}
     }
@@ -154,7 +151,6 @@ function getWorldsList() {
     return Object.values(WORLDS).map(w => ({
         id: w.id,
         name: w.name,
-        description: w.description,
         playerCount: Object.keys(w.players).length,
         maxPlayers: w.maxPlayers
     }));
