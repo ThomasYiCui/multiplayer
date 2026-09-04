@@ -5,12 +5,7 @@ class Weapon {
         this.options = options;
     }
 
-    display(ctx) {
-        // 2-line transform: move to player position and rotate towards pointing angle
-        ctx.save();
-        ctx.translate(this.player.x, this.player.y);
-        ctx.rotate(this.player.r + Math.PI);
-
+    iron_sword(ctx) {
         // --- SWORD BLADE ---
         ctx.beginPath();
         ctx.moveTo(54, -6);
@@ -68,6 +63,19 @@ class Weapon {
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
         ctx.stroke();
+    }
+
+    display(ctx) {
+        // 2-line transform: move to player position and rotate towards pointing angle
+        ctx.save();
+        ctx.translate(this.player.x, this.player.y);
+        ctx.rotate(this.player.r + Math.PI);
+
+        switch (this.type) {
+            case "Iron Sword":
+                this.iron_sword(ctx)
+                break;
+        }
 
         ctx.restore();
     }
