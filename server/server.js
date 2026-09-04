@@ -25,9 +25,10 @@ if (MONGODB_URI) {
     mongoose.connect(MONGODB_URI, {
         serverSelectionTimeoutMS: 5000
     })
-    .then(() => {
+    .then(async () => {
         console.log('Connected to MongoDB Atlas');
         useMongo = true;
+        await syncLocalToMongo();
     })
     .catch(err => {
         console.warn('MongoDB connection failed, falling back to local file storage:', err.message);
@@ -75,6 +76,25 @@ function saveLocalUser(user) {
     }
 }
 
+// Auto-sync local fallback users into MongoDB Atlas on connection
+async function syncLocalToMongo() {
+    try {
+        if (!UserModel || mongoose.connection.readyState !== 1) return;
+        const localDb = getLocalUsers();
+        for (const key in localDb) {
+            const localUser = localDb[key];
+            const exists = await UserModel.findOne({ username: new RegExp(`^${localUser.username}$`, 'i') });
+            if (!exists) {
+                const doc = new UserModel(localUser);
+                await doc.save();
+                console.log(`[Sync] Migrated local account to MongoDB Atlas: ${localUser.username}`);
+            }
+        }
+    } catch (err) {
+        console.warn('[Sync] Auto-migration error:', err.message);
+    }
+}
+
 // Database helper functions
 async function findUser(username) {
     const clean = username ? username.trim() : '';
@@ -82,9 +102,10 @@ async function findUser(username) {
 
     if (useMongo && UserModel && mongoose.connection.readyState === 1) {
         try {
-            return await UserModel.findOne({ username: new RegExp(`^${clean}$`, 'i') });
+            const doc = await UserModel.findOne({ username: new RegExp(`^${clean}$`, 'i') });
+            if (doc) return doc;
         } catch (err) {
-            console.warn('MongoDB findUser error, fallback to local:', err.message);
+            console.warn('MongoDB findUser error, checking local storage:', err.message);
         }
     }
     const db = getLocalUsers();
@@ -106,15 +127,17 @@ async function createUser(username, hashedPassword) {
         inventory: []
     };
 
+    // Always save local backup copy
+    saveLocalUser(newUser);
+
     if (useMongo && UserModel && mongoose.connection.readyState === 1) {
         try {
             const doc = new UserModel(newUser);
             return await doc.save();
         } catch (err) {
-            console.warn('MongoDB createUser error, fallback to local:', err.message);
+            console.warn('MongoDB createUser error, saved to local storage:', err.message);
         }
     }
-    saveLocalUser(newUser);
     return newUser;
 }
 
