@@ -62,6 +62,8 @@ class Player {
         if (this.weapon) {
             this.weapon.display(ctx);
         }
+
+        ctx.restore();
     }
 
     update(input, game) {
