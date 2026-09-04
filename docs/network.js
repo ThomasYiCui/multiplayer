@@ -11,6 +11,7 @@ class NetworkManager {
         this.onRoomJoined = null;
         this.onPlayerJoined = null;
         this.onPlayerMoved = null;
+        this.onPlayerMouse = null;
         this.onPlayerLeft = null;
         this.onError = null;
     }
@@ -48,6 +49,10 @@ class NetworkManager {
             if (this.onPlayerMoved) this.onPlayerMoved(data);
         });
 
+        this.socket.on('playerMouse', (data) => {
+            if (this.onPlayerMouse) this.onPlayerMouse(data);
+        });
+
         this.socket.on('playerLeft', (id) => {
             console.log('[Network] Player left room:', id);
             if (this.onPlayerLeft) this.onPlayerLeft(id);
@@ -81,6 +86,12 @@ class NetworkManager {
     sendMove(x, y) {
         if (this.socket && this.socket.connected) {
             this.socket.emit('playerMove', { x, y });
+        }
+    }
+
+    sendMouse(mouseX, mouseY, clicked, dragged) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('playerMouse', { mouseX, mouseY, clicked, dragged });
         }
     }
 }

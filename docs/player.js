@@ -2,6 +2,10 @@ class Player {
     constructor(x, y, id, playerName, opt = {}) {
         this.x = x;
         this.y = y;
+        this.mouseX = 0;
+        this.mouseY = 0;
+        this.clicked = false;
+        this.dragged = false;
         this.targetX = x;
         this.targetY = y;
         this.id = id;
@@ -29,28 +33,41 @@ class Player {
     }
 
 
-    update(keys, game) {
+    update(input, game) {
         if (this.isSelf) {
             let moved = false;
-            if (keys["KeyA"] || keys["ArrowLeft"]) {
+            if (input.keys["KeyA"] || input.keys["ArrowLeft"]) {
                 this.x -= this.speed;
                 moved = true;
             }
-            if (keys["KeyD"] || keys["ArrowRight"]) {
+            if (input.keys["KeyD"] || input.keys["ArrowRight"]) {
                 this.x += this.speed;
                 moved = true;
             }
-            if (keys["KeyW"] || keys["ArrowUp"]) {
+            if (input.keys["KeyW"] || input.keys["ArrowUp"]) {
                 this.y -= this.speed;
                 moved = true;
             }
-            if (keys["KeyS"] || keys["ArrowDown"]) {
+            if (input.keys["KeyS"] || input.keys["ArrowDown"]) {
                 this.y += this.speed;
                 moved = true;
             }
 
-            if (moved && game && !game.isOffline && game.network) {
-                game.network.sendMove(this.x, this.y);
+            const mouseMoved = this.mouseX !== input.mouse.x || this.mouseY !== input.mouse.y;
+            const mouseStateChanged = this.clicked !== input.clicked || this.dragged !== input.dragged;
+
+            this.mouseX = input.mouse.x;
+            this.mouseY = input.mouse.y;
+            this.clicked = input.clicked;
+            this.dragged = input.dragged;
+
+            if (game && !game.isOffline && game.network) {
+                if (moved) {
+                    game.network.sendMove(this.x, this.y);
+                }
+                if (mouseMoved || mouseStateChanged) {
+                    game.network.sendMouse(this.mouseX, this.mouseY, this.clicked, this.dragged);
+                }
             }
         }
         if (!this.isSelf) {

@@ -250,7 +250,26 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 4. DISCONNECT / LEAVE
+    // 4. MOUSE / CLICK / DRAG UPDATE
+    socket.on('playerMouse', (data) => {
+        if (currentRoom && rooms[currentRoom]?.players[socket.id]) {
+            const p = rooms[currentRoom].players[socket.id];
+            p.mouseX = data.mouseX;
+            p.mouseY = data.mouseY;
+            p.clicked = data.clicked;
+            p.dragged = data.dragged;
+
+            socket.to(currentRoom).emit('playerMouse', {
+                id: socket.id,
+                mouseX: data.mouseX,
+                mouseY: data.mouseY,
+                clicked: data.clicked,
+                dragged: data.dragged
+            });
+        }
+    });
+
+    // 5. DISCONNECT / LEAVE
     socket.on('disconnect', () => {
         if (currentRoom && rooms[currentRoom]) {
             delete rooms[currentRoom].players[socket.id];

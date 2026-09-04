@@ -10,6 +10,10 @@ class Game {
         this.selfId = null;
 
         this.keys = { up: false, down: false, left: false, right: false };
+        this.mouseX = 0;
+        this.mouseY = 0;
+        this.clicked = false;
+        this.dragged = false;
         this.isOffline = false;
 
         const SERVER_URL = 'https://multiplayer-l8xd.onrender.com';
@@ -111,6 +115,15 @@ class Game {
             }
         };
 
+        this.network.onPlayerMouse = (data) => {
+            if (this.players[data.id]) {
+                this.players[data.id].mouseX = data.mouseX;
+                this.players[data.id].mouseY = data.mouseY;
+                this.players[data.id].clicked = data.clicked;
+                this.players[data.id].dragged = data.dragged;
+            }
+        };
+
         this.network.onPlayerLeft = (id) => {
             delete this.players[id];
         };
@@ -128,20 +141,48 @@ class Game {
         window.addEventListener('keyup', (e) => {
             this.keys[e.code] = false;
         });
+
+        this.canvas.addEventListener("mousemove", (e) => {
+            var cRect = this.canvas.getBoundingClientRect();
+            this.mouseX = Math.round(e.clientX - cRect.left);
+            this.mouseY = Math.round(e.clientY - cRect.top);
+        });
+
+        this.canvas.addEventListener("mousedown", (e) => {
+            this.dragged = true;
+        }, false);
+
+        this.canvas.addEventListener("mouseup", (e) => {
+            if (this.dragged === true) {
+                this.clicked = true;
+                this.dragged = false;
+            }
+        }, false);
     }
 
     loop() {
         for (const id in this.players) {
-            const player = this.players[id]
-            player.update(this.keys)
+            const player = this.players[id];
+            player.update(
+                {
+                    keys: this.keys,
+                    clicked: this.clicked,
+                    dragged: this.dragged,
+                    mouse: {
+                        x: this.mouseX,
+                        y: this.mouseY,
+                    }
+                }, this);
         }
+
+        this.clicked = false;
 
         this.ctx.fillStyle = '#0f172a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawGrid();
 
         for (const id in this.players) {
-            this.players[id].display(this.ctx)
+            this.players[id].display(this.ctx);
         }
 
         requestAnimationFrame(() => this.loop());
