@@ -65,11 +65,11 @@ class Player {
 
         // --- SWORD BLADE ---
         ctx.beginPath();
-        ctx.moveTo(48, -6);
-        ctx.lineTo(105, -6);
-        ctx.lineTo(122, 0);   // Sharp pointy tip
-        ctx.lineTo(105, 6);
-        ctx.lineTo(48, 6);
+        ctx.moveTo(60, -6);
+        ctx.lineTo(118, -6);
+        ctx.lineTo(135, 0);   // Sharp pointy tip
+        ctx.lineTo(118, 6);
+        ctx.lineTo(60, 6);
         ctx.closePath();
 
         // Steel blade fill
@@ -81,8 +81,8 @@ class Player {
 
         // Blade center ridge highlight
         ctx.beginPath();
-        ctx.moveTo(50, 0);
-        ctx.lineTo(115, 0);
+        ctx.moveTo(62, 0);
+        ctx.lineTo(128, 0);
         ctx.strokeStyle = '#94a3b8';
         ctx.lineWidth = 1.5;
         ctx.stroke();
@@ -90,7 +90,7 @@ class Player {
         // --- CROSSGUARD ---
         ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(44, -14, 6, 28, 2) : ctx.rect(44, -14, 6, 28);
+        ctx.roundRect ? ctx.roundRect(56, -14, 6, 28, 2) : ctx.rect(56, -14, 6, 28);
         ctx.fill();
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
@@ -98,15 +98,15 @@ class Player {
 
         // --- HILT / GRIP ---
         ctx.fillStyle = '#78350f';
-        ctx.fillRect(24, -3.5, 20, 7);
+        ctx.fillRect(36, -3.5, 20, 7);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(24, -3.5, 20, 7);
+        ctx.strokeRect(36, -3.5, 20, 7);
 
         // --- POMMEL ---
         ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.ellipse(22, 0, 4.5, 4.5, 0, 0, 2 * Math.PI);
+        ctx.ellipse(34, 0, 4.5, 4.5, 0, 0, 2 * Math.PI);
         ctx.fill();
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
@@ -115,7 +115,7 @@ class Player {
         // --- HANDS (Holding Grip) ---
         ctx.fillStyle = 'rgb(252, 219, 154)';
         ctx.beginPath();
-        ctx.ellipse(34, 0, this.size * 0.35, this.size * 0.35, 0, 0, 2 * Math.PI);
+        ctx.ellipse(46, 0, this.size * 0.35, this.size * 0.35, 0, 0, 2 * Math.PI);
         ctx.fill();
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
