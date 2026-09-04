@@ -61,7 +61,7 @@ app.get('/', (req, res) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🎮 Game Server Dashboard</title>
+  <title>Game Server Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -92,7 +92,7 @@ app.get('/', (req, res) => {
 <body>
   <div class="container">
     <header>
-      <h1>🎮 Multiplayer Server Status</h1>
+      <h1>Multiplayer Server Status</h1>
       <div class="header-links">
         <a href="https://thomasyicui.github.io/multiplayer/" target="_blank" class="play-link">🕹️ Play Game</a>
         <span class="status-badge" id="statusBadge">🟢 Online</span>

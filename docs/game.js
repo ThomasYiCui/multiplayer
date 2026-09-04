@@ -1,15 +1,18 @@
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
+        this.canvas.width = window.innerWidth
+        this.canvas.height = window.innerHeight
+
+
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
         this.selfId = null;
         this.speed = 5;
-        this.playerSize = 34; // Square dimensions
+        this.playerSize = 34;
         this.keys = { up: false, down: false, left: false, right: false };
-        this.isOffline = false; // Flag for solo/offline dev testing
+        this.isOffline = false;
 
-        // Connect to your live Render server
         const SERVER_URL = 'https://multiplayer-l8xd.onrender.com';
         this.network = new NetworkManager(SERVER_URL);
         this.network.connect();
@@ -49,22 +52,18 @@ class Game {
         this.selfId = 'solo-player';
 
         // Spawn local player
-        this.players[this.selfId] = {
-            id: this.selfId,
-            name: playerName,
-            x: 400,
-            y: 300,
-            color: '#38bdf8'
-        };
+        this.players[this.selfId] = new Player(400, 300, this.selfId, playerName,
+            {
+                isSelf: true,
+            }
+        )
 
         // Spawn a dummy target bot for collision/testing
-        this.players['training-bot'] = {
-            id: 'training-bot',
-            name: 'Training Bot',
-            x: 250,
-            y: 300,
-            color: '#f43f5e'
-        };
+        this.players['training-bot'] = new Player(250, 300, 'training-bot', "Training Bot",
+            {
+                isSelf: false,
+            }
+        )
 
         // Switch to game canvas
         document.getElementById('lobbyScreen').style.display = 'none';
@@ -88,24 +87,28 @@ class Game {
 
         this.network.onRoomJoined = (data) => {
             this.selfId = data.selfId;
-            this.players = data.players;
+            this.players = {};
 
-            // Initialize target positions for smooth lerping
-            for (const id in this.players) {
-                this.players[id].targetX = this.players[id].x;
-                this.players[id].targetY = this.players[id].y;
+            // Instantiate Player objects for all players currently in the room
+            for (const id in data.players) {
+                const p = data.players[id];
+                this.players[id] = new Player(p.x, p.y, p.id, p.name, {
+                    isSelf: p.id === this.selfId,
+                    color: p.color
+                });
             }
 
-            // Switch to game screen
             document.getElementById('lobbyScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'flex';
             document.getElementById('displayRoomCode').innerText = data.roomCode;
         };
 
-        this.network.onPlayerJoined = (player) => {
-            player.targetX = player.x;
-            player.targetY = player.y;
-            this.players[player.id] = player;
+        this.network.onPlayerJoined = (p) => {
+            // Instantiate Player object for newly joined remote player
+            this.players[p.id] = new Player(p.x, p.y, p.id, p.name, {
+                isSelf: false,
+                color: p.color
+            });
         };
 
         this.network.onPlayerMoved = (data) => {
@@ -141,23 +144,20 @@ class Game {
     }
 
     loop() {
-        // 1. Move local player
         if (this.selfId && this.players[this.selfId]) {
             const me = this.players[this.selfId];
             let moved = false;
-            const halfSize = this.playerSize / 2;
 
-            if (this.keys.left && me.x > halfSize) { me.x -= this.speed; moved = true; }
-            if (this.keys.right && me.x < this.canvas.width - halfSize) { me.x += this.speed; moved = true; }
-            if (this.keys.up && me.y > halfSize) { me.y -= this.speed; moved = true; }
-            if (this.keys.down && me.y < this.canvas.height - halfSize) { me.y += this.speed; moved = true; }
+            if (this.keys.left && me.x > 0) { me.x -= me.speed; moved = true; }
+            if (this.keys.right && me.x < this.canvas.width - me.size) { me.x += me.speed; moved = true; }
+            if (this.keys.up && me.y > 0) { me.y -= me.speed; moved = true; }
+            if (this.keys.down && me.y < this.canvas.height - me.size) { me.y += me.speed; moved = true; }
 
             if (moved && !this.isOffline) {
                 this.network.sendMove(me.x, me.y);
             }
         }
 
-        // 2. Interpolate other players (smooth movement)
         for (const id in this.players) {
             if (id !== this.selfId) {
                 const p = this.players[id];
@@ -168,40 +168,16 @@ class Game {
             }
         }
 
-        // 3. Clear canvas & draw background grid
         this.ctx.fillStyle = '#0f172a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawGrid();
 
-        // 4. Draw all players as squares
         for (const id in this.players) {
             const p = this.players[id];
             const isSelf = id === this.selfId;
             const s = this.playerSize;
 
-            this.ctx.save();
-
-            // Glow effect
-            this.ctx.shadowBlur = 10;
-            this.ctx.shadowColor = p.color;
-
-            // Draw Square Body
-            this.ctx.fillStyle = p.color;
-            this.ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
-
-            // Outline (Bright white for local player)
-            this.ctx.lineWidth = isSelf ? 3 : 1.5;
-            this.ctx.strokeStyle = isSelf ? '#ffffff' : '#00000066';
-            this.ctx.strokeRect(p.x - s / 2, p.y - s / 2, s, s);
-
-            this.ctx.restore();
-
-            // Nametag
-            this.ctx.font = 'bold 12px "Segoe UI", sans-serif';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillStyle = isSelf ? '#38bdf8' : '#f8fafc';
-            const label = isSelf ? `${p.name} (You)` : p.name;
-            this.ctx.fillText(label, p.x, p.y - s / 2 - 8);
+            this.players[id].display(this.ctx)
         }
 
         requestAnimationFrame(() => this.loop());

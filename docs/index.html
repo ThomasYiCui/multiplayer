@@ -22,7 +22,8 @@
 
             <div class="action-buttons" style="display: flex; flex-direction: column; gap: 8px;">
                 <button id="createBtn" class="btn primary">Create New Room</button>
-                <button id="offlineBtn" class="btn secondary" style="background: #334155; border: 1px solid #475569;">🕹️ Play Offline (Solo Dev Mode)</button>
+                <button id="offlineBtn" class="btn secondary"
+                    style="background: #334155; border: 1px solid #475569;">🕹️ Play Offline (Solo Dev Mode)</button>
             </div>
 
             <div class="divider"><span>OR JOIN WITH CODE</span></div>
@@ -37,12 +38,12 @@
     <div id="gameScreen" class="screen" style="display: none;">
         <div class="hud">
             <div>Room Code: <strong id="displayRoomCode" class="room-tag">----</strong> (Share with friends)</div>
-            <div>Controls: <strong>WASD / Arrow Keys</strong></div>
         </div>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
     </div>
 
     <script src="network.js"></script>
+    <script src="player.js"></script>
     <script src="game.js"></script>
 </body>
 
