@@ -106,6 +106,9 @@ class Player {
             this.clicked = input.clicked;
             this.dragged = input.dragged;
 
+            // Calculate pointing rotation angle towards mouse
+            this.r = Math.atan2(this.y - this.mouseY, this.x - this.mouseX);
+
             // Resolve collisions with any walls in the game
             if (game && game.walls && Array.isArray(game.walls)) {
                 for (const wall of game.walls) {
