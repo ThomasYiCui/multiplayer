@@ -303,9 +303,57 @@ class Game {
             delete this.players[id];
         };
 
+        this.network.onPlayerDamaged = (data) => {
+            const target = this.players[data.targetId];
+            const attacker = this.players[data.attackerId];
+
+            if (target) {
+                target.onDamaged(data.damage, data.hp, data.pushAngle, data.pushForce, data.newX, data.newY, attacker);
+
+                // If self was damaged, trigger screen shake and update HUD
+                if (data.targetId === this.selfId) {
+                    this.triggerScreenShake(8);
+                    this.updateUserProfileUI({
+                        username: target.playerName,
+                        level: target.level,
+                        hp: data.hp,
+                        maxHp: target.maxHp,
+                        gold: target.gold
+                    });
+                }
+            }
+        };
+
+        this.network.onPlayerRespawned = (data) => {
+            const player = this.players[data.id];
+            if (player) {
+                player.hp = data.hp;
+                player.x = data.x;
+                player.y = data.y;
+                player.targetX = data.x;
+                player.targetY = data.y;
+                player.knockbackX = 0;
+                player.knockbackY = 0;
+
+                if (data.id === this.selfId) {
+                    this.updateUserProfileUI({
+                        username: player.playerName,
+                        level: player.level,
+                        hp: player.hp,
+                        maxHp: player.maxHp,
+                        gold: player.gold
+                    });
+                }
+            }
+        };
+
         this.network.onError = (msg) => {
             alert(msg);
         };
+    }
+
+    triggerScreenShake(amount = 5) {
+        this.screenShake = Math.max(this.screenShake || 0, amount);
     }
 
     setupInputs() {
@@ -381,9 +429,18 @@ class Game {
         this.ctx.fillStyle = '#0f172a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Apply camera offset transformation
+        // Screen Shake calculation
+        let shakeX = 0;
+        let shakeY = 0;
+        if (this.screenShake && this.screenShake > 0) {
+            shakeX = (Math.random() - 0.5) * this.screenShake * 2;
+            shakeY = (Math.random() - 0.5) * this.screenShake * 2;
+            this.screenShake = Math.max(0, this.screenShake - dt * 25);
+        }
+
+        // Apply camera offset transformation with shake
         this.ctx.save();
-        this.ctx.translate(-Math.round(this.camera.x), -Math.round(this.camera.y));
+        this.ctx.translate(-Math.round(this.camera.x + shakeX), -Math.round(this.camera.y + shakeY));
 
         this.drawGrid();
 

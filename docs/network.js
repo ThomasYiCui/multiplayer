@@ -78,10 +78,24 @@ class NetworkManager {
             if (this.onPlayerLeft) this.onPlayerLeft(id);
         });
 
+        this.socket.on('playerDamaged', (data) => {
+            if (this.onPlayerDamaged) this.onPlayerDamaged(data);
+        });
+
+        this.socket.on('playerRespawned', (data) => {
+            if (this.onPlayerRespawned) this.onPlayerRespawned(data);
+        });
+
         this.socket.on('errorMsg', (msg) => {
             console.error('[Network] Server error:', msg);
             if (this.onError) this.onError(msg);
         });
+    }
+
+    sendHit(targetId, damage, pushAngle, pushForce) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('playerHit', { targetId, damage, pushAngle, pushForce });
+        }
     }
 
     register(username, password) {

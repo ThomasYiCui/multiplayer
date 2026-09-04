@@ -625,6 +625,57 @@ io.on('connection', (socket) => {
         }
     });
 
+    // COMBAT: Player hits another player
+    socket.on('playerHit', ({ targetId, damage, pushAngle, pushForce, pushX, pushY }) => {
+        if (!currentWorld || !WORLDS[currentWorld]) return;
+        const world = WORLDS[currentWorld];
+        const target = world.players[targetId];
+        const attacker = world.players[socket.id];
+
+        if (target && attacker) {
+            const actualDamage = Math.max(1, damage || 15);
+            target.hp = Math.max(0, target.hp - actualDamage);
+
+            const force = pushForce || 360;
+            const angle = pushAngle !== undefined ? pushAngle : Math.atan2(target.y - attacker.y, target.x - attacker.x);
+
+            // Server-side estimate of knockback position
+            target.x += Math.cos(angle) * (force * 0.12);
+            target.y += Math.sin(angle) * (force * 0.12);
+
+            // Broadcast damage & knockback vector to all players in the world
+            io.to(currentWorld).emit('playerDamaged', {
+                targetId: targetId,
+                attackerId: socket.id,
+                damage: actualDamage,
+                hp: target.hp,
+                maxHp: target.maxHp,
+                pushAngle: angle,
+                pushForce: force,
+                newX: target.x,
+                newY: target.y
+            });
+
+            // If target died, respawn after 2 seconds
+            if (target.hp <= 0) {
+                setTimeout(() => {
+                    if (world.players[targetId]) {
+                        world.players[targetId].hp = world.players[targetId].maxHp;
+                        world.players[targetId].x = Math.floor(Math.random() * 400) + 100;
+                        world.players[targetId].y = Math.floor(Math.random() * 300) + 100;
+
+                        io.to(currentWorld).emit('playerRespawned', {
+                            id: targetId,
+                            hp: world.players[targetId].hp,
+                            x: world.players[targetId].x,
+                            y: world.players[targetId].y
+                        });
+                    }
+                }, 2000);
+            }
+        }
+    });
+
     // DISCONNECT
     socket.on('disconnect', async () => {
         if (currentWorld && WORLDS[currentWorld]) {
