@@ -6,6 +6,7 @@ class Game {
 
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
+        this.walls = [];
         this.selfId = null;
 
         this.keys = { up: false, down: false, left: false, right: false };
@@ -360,6 +361,11 @@ class Game {
         this.ctx.fillStyle = '#0f172a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawGrid();
+
+        // Render Walls
+        for (const wall of this.walls) {
+            wall.display(this.ctx);
+        }
 
         for (const id in this.players) {
             this.players[id].display(this.ctx);

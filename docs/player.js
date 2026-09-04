@@ -50,16 +50,16 @@ class Player {
         ctx.fillText(tag, this.x, barY - 4);
 
         // 2. Body Circle
-        ctx.fillStyle = this.color;
+        ctx.fillStyle = 'rgb(252, 219, 154)'
         ctx.beginPath();
         ctx.ellipse(this.x, this.y, this.size, this.size, 0, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = '#000000ff';
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // 3. Hand / Weapon Pointing Direction
-        ctx.fillStyle = '#f1f5f9';
+        ctx.fillStyle = 'rgb(252, 219, 154)'
         ctx.beginPath();
         ctx.ellipse(
             this.x - Math.cos(this.r) * this.size * 1.4,
@@ -68,7 +68,7 @@ class Player {
             0, 0, 2 * Math.PI
         );
         ctx.fill();
-        ctx.strokeStyle = '#0f172a';
+        ctx.strokeStyle = '#000000ff';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
@@ -106,7 +106,12 @@ class Player {
             this.clicked = input.clicked;
             this.dragged = input.dragged;
 
-            this.r = Math.atan2(this.y - this.mouseY, this.x - this.mouseX);
+            // Resolve collisions with any walls in the game
+            if (game && game.walls && Array.isArray(game.walls)) {
+                for (const wall of game.walls) {
+                    wall.resolveCollision(this);
+                }
+            }
 
             if (game && !game.isOffline && game.network) {
                 if (moved) {
