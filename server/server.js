@@ -94,8 +94,8 @@ app.get('/', (req, res) => {
     <header>
       <h1>Multiplayer Server Status</h1>
       <div class="header-links">
-        <a href="https://thomasyicui.github.io/multiplayer/" target="_blank" class="play-link">🕹️ Play Game</a>
-        <span class="status-badge" id="statusBadge">🟢 Online</span>
+        <a href="https://thomasyicui.github.io/multiplayer/" target="_blank" class="play-link">Play Game</a>
+        <span class="status-badge" id="statusBadge">Online</span>
       </div>
     </header>
 
@@ -181,40 +181,97 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Helper: Generate a random 4-letter room code (e.g., "GAME", "Z4K9")
-function generateRoomCode() {
-    return Math.random().toString(36).substring(2, 6).toUpperCase();
+// Helper: Return list of public lobbies
+function getLobbiesList() {
+    const list = [];
+    for (const id in rooms) {
+        const count = Object.keys(rooms[id].players).length;
+        if (count > 0) {
+            list.push({
+                id: id,
+                name: rooms[id].name || `Lobby ${id}`,
+                playerCount: count,
+                maxPlayers: rooms[id].maxPlayers || 8
+            });
+        }
+    }
+    return list;
 }
+
+function broadcastLobbies() {
+    io.emit('lobbyList', getLobbiesList());
+}
+
+let lobbyCounter = 1;
 
 io.on('connection', (socket) => {
     let currentRoom = null;
 
     console.log(`[+] Connected: ${socket.id}`);
 
-    // 1. CREATE A ROOM
-    socket.on('createRoom', ({ playerName }) => {
-        const roomCode = generateRoomCode();
-        rooms[roomCode] = {
-            code: roomCode,
-            players: {}
+    // Send current lobby list upon connection
+    socket.emit('lobbyList', getLobbiesList());
+
+    // 1. CREATE LOBBY
+    socket.on('createLobby', ({ lobbyName, playerName }) => {
+        const lobbyId = 'LOBBY-' + (lobbyCounter++);
+        const displayName = lobbyName && lobbyName.trim().length > 0 
+            ? lobbyName.trim() 
+            : `${playerName || 'Player'}'s World`;
+
+        rooms[lobbyId] = {
+            id: lobbyId,
+            name: displayName,
+            players: {},
+            maxPlayers: 8
         };
 
-        joinRoomLogic(socket, roomCode, playerName);
+        joinLobbyLogic(socket, lobbyId, playerName);
     });
 
-    // 2. JOIN AN EXISTING ROOM
-    socket.on('joinRoom', ({ roomCode, playerName }) => {
-        const code = roomCode.toUpperCase().trim();
-        if (!rooms[code]) {
-            return socket.emit('errorMsg', 'Room not found! Check the code.');
+    // 2. JOIN SPECIFIC LOBBY BY ID (1-Click from list)
+    socket.on('joinLobby', ({ lobbyId, playerName }) => {
+        if (!rooms[lobbyId]) {
+            return socket.emit('errorMsg', 'Lobby no longer exists!');
         }
-        joinRoomLogic(socket, code, playerName);
+        joinLobbyLogic(socket, lobbyId, playerName);
+    });
+
+    // 3. QUICK PLAY (Join existing open lobby or create one)
+    socket.on('quickPlay', ({ playerName }) => {
+        let targetLobbyId = null;
+        for (const id in rooms) {
+            const count = Object.keys(rooms[id].players).length;
+            if (count > 0 && count < (rooms[id].maxPlayers || 8)) {
+                targetLobbyId = id;
+                break;
+            }
+        }
+
+        if (targetLobbyId) {
+            joinLobbyLogic(socket, targetLobbyId, playerName);
+        } else {
+            const lobbyId = 'LOBBY-' + (lobbyCounter++);
+            rooms[lobbyId] = {
+                id: lobbyId,
+                name: `Public World ${lobbyCounter - 1}`,
+                players: {},
+                maxPlayers: 8
+            };
+            joinLobbyLogic(socket, lobbyId, playerName);
+        }
     });
 
     // Reusable join logic
-    function joinRoomLogic(socket, roomCode, playerName) {
-        currentRoom = roomCode;
-        socket.join(roomCode);
+    function joinLobbyLogic(socket, lobbyId, playerName) {
+        if (currentRoom && rooms[currentRoom]) {
+            delete rooms[currentRoom].players[socket.id];
+            socket.leave(currentRoom);
+            socket.to(currentRoom).emit('playerLeft', socket.id);
+        }
+
+        currentRoom = lobbyId;
+        socket.join(lobbyId);
 
         const newPlayer = {
             id: socket.id,
@@ -224,33 +281,48 @@ io.on('connection', (socket) => {
             color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')
         };
 
-        rooms[roomCode].players[socket.id] = newPlayer;
+        rooms[lobbyId].players[socket.id] = newPlayer;
 
-        // Send the room code and all players in the room to the joining player
         socket.emit('roomJoined', {
-            roomCode: roomCode,
+            roomCode: rooms[lobbyId].name,
+            roomId: lobbyId,
             selfId: socket.id,
-            players: rooms[roomCode].players
+            players: rooms[lobbyId].players
         });
 
-        // Notify others in this room only
-        socket.to(roomCode).emit('playerJoined', newPlayer);
-        console.log(`Player ${newPlayer.name} joined room: ${roomCode}`);
+        socket.to(lobbyId).emit('playerJoined', newPlayer);
+        broadcastLobbies();
+        console.log(`Player ${newPlayer.name} joined: ${rooms[lobbyId].name}`);
     }
 
-    // 3. MOVEMENT / POSITION UPDATE
+    // 4. LEAVE LOBBY
+    socket.on('leaveLobby', () => {
+        if (currentRoom && rooms[currentRoom]) {
+            delete rooms[currentRoom].players[socket.id];
+            socket.to(currentRoom).emit('playerLeft', socket.id);
+            socket.leave(currentRoom);
+
+            if (Object.keys(rooms[currentRoom].players).length === 0) {
+                delete rooms[currentRoom];
+            }
+            currentRoom = null;
+            broadcastLobbies();
+        }
+        socket.emit('lobbyList', getLobbiesList());
+    });
+
+    // 5. MOVEMENT / POSITION UPDATE
     socket.on('playerMove', (data) => {
         if (currentRoom && rooms[currentRoom]?.players[socket.id]) {
             const p = rooms[currentRoom].players[socket.id];
             p.x = data.x;
             p.y = data.y;
 
-            // Broadcast new position to everyone in the room
             socket.to(currentRoom).emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
         }
     });
 
-    // 4. MOUSE / CLICK / DRAG / ROTATION UPDATE
+    // 6. MOUSE / CLICK / DRAG / ROTATION UPDATE
     socket.on('playerMouse', (data) => {
         if (currentRoom && rooms[currentRoom]?.players[socket.id]) {
             const p = rooms[currentRoom].players[socket.id];
@@ -271,17 +343,16 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 5. DISCONNECT / LEAVE
+    // 7. DISCONNECT
     socket.on('disconnect', () => {
         if (currentRoom && rooms[currentRoom]) {
             delete rooms[currentRoom].players[socket.id];
             socket.to(currentRoom).emit('playerLeft', socket.id);
 
-            // Clean up empty rooms
             if (Object.keys(rooms[currentRoom].players).length === 0) {
                 delete rooms[currentRoom];
-                console.log(`Room ${currentRoom} deleted (empty)`);
             }
+            broadcastLobbies();
         }
         console.log(`[-] Disconnected: ${socket.id}`);
     });

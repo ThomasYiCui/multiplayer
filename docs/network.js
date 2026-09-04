@@ -8,6 +8,7 @@ class NetworkManager {
         // Event callbacks
         this.onConnected = null;
         this.onConnectError = null;
+        this.onLobbyList = null;
         this.onRoomJoined = null;
         this.onPlayerJoined = null;
         this.onPlayerMoved = null;
@@ -31,6 +32,10 @@ class NetworkManager {
         this.socket.on('connect_error', (err) => {
             console.warn('[Network] Connection error (server may be waking up):', err.message);
             if (this.onConnectError) this.onConnectError(err);
+        });
+
+        this.socket.on('lobbyList', (lobbies) => {
+            if (this.onLobbyList) this.onLobbyList(lobbies);
         });
 
         this.socket.on('roomJoined', (data) => {
@@ -64,23 +69,34 @@ class NetworkManager {
         });
     }
 
-    createRoom(playerName) {
+    createLobby(lobbyName, playerName) {
         if (!this.socket || !this.socket.connected) {
-            console.warn('[Network] Socket not connected yet. Waiting for server...');
             alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again!');
             return;
         }
-        console.log('[Network] Emitting createRoom with name:', playerName);
-        this.socket.emit('createRoom', { playerName });
+        this.socket.emit('createLobby', { lobbyName, playerName });
     }
 
-    joinRoom(roomCode, playerName) {
+    joinLobby(lobbyId, playerName) {
         if (!this.socket || !this.socket.connected) {
             alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again!');
             return;
         }
-        console.log('[Network] Emitting joinRoom:', roomCode, playerName);
-        this.socket.emit('joinRoom', { roomCode, playerName });
+        this.socket.emit('joinLobby', { lobbyId, playerName });
+    }
+
+    quickPlay(playerName) {
+        if (!this.socket || !this.socket.connected) {
+            alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again!');
+            return;
+        }
+        this.socket.emit('quickPlay', { playerName });
+    }
+
+    leaveLobby() {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('leaveLobby');
+        }
     }
 
     sendMove(x, y) {

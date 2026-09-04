@@ -30,63 +30,98 @@ class Game {
 
     setupUI() {
         const nameInput = document.getElementById('playerNameInput');
-        const codeInput = document.getElementById('roomCodeInput');
+        const lobbyNameInput = document.getElementById('lobbyNameInput');
 
-        document.getElementById('createBtn').addEventListener('click', () => {
+        document.getElementById('quickPlayBtn').addEventListener('click', () => {
             const name = nameInput.value.trim() || 'Player';
-            this.network.createRoom(name);
+            this.network.quickPlay(name);
         });
 
-        document.getElementById('joinBtn').addEventListener('click', () => {
-            const code = codeInput.value.trim();
-            if (!code) return alert('Please enter a 4-letter room code!');
+        document.getElementById('createLobbyBtn').addEventListener('click', () => {
             const name = nameInput.value.trim() || 'Player';
-            this.network.joinRoom(code, name);
+            const lobbyName = lobbyNameInput.value.trim();
+            this.network.createLobby(lobbyName, name);
         });
 
-        // 🕹️ Offline Solo Dev Mode
         document.getElementById('offlineBtn').addEventListener('click', () => {
             const name = nameInput.value.trim() || 'SoloDev';
             this.startOfflineMode(name);
         });
+
+        document.getElementById('leaveBtn').addEventListener('click', () => {
+            this.leaveGame();
+        });
+    }
+
+    renderLobbyList(lobbies) {
+        const container = document.getElementById('lobbiesContainer');
+        if (!container) return;
+        const nameInput = document.getElementById('playerNameInput');
+
+        if (!lobbies || lobbies.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: #64748b; font-size: 13px; padding: 14px;">No active lobbies. Click <strong>Quick Play</strong> or <strong>Host Lobby</strong> to start!</div>`;
+            return;
+        }
+
+        container.innerHTML = '';
+        lobbies.forEach(lobby => {
+            const item = document.createElement('div');
+            item.className = 'lobby-item';
+            item.innerHTML = `
+                <div>
+                    <span class="lobby-name">${lobby.name}</span>
+                    <span class="lobby-badge">${lobby.playerCount} / ${lobby.maxPlayers} Players</span>
+                </div>
+                <button class="join-lobby-btn">Join</button>
+            `;
+            item.querySelector('button').addEventListener('click', () => {
+                const name = nameInput.value.trim() || 'Player';
+                this.network.joinLobby(lobby.id, name);
+            });
+            container.appendChild(item);
+        });
+    }
+
+    leaveGame() {
+        this.isOffline = false;
+        this.players = {};
+        this.selfId = null;
+        this.network.leaveLobby();
+
+        document.getElementById('gameScreen').style.display = 'none';
+        document.getElementById('lobbyScreen').style.display = 'flex';
     }
 
     startOfflineMode(playerName) {
         this.isOffline = true;
         this.selfId = 'solo-player';
 
-        // Spawn local player
-        this.players[this.selfId] = new Player(400, 300, this.selfId, playerName,
-            {
-                isSelf: true,
-            }
-        )
+        this.players[this.selfId] = new Player(400, 300, this.selfId, playerName, {
+            isSelf: true,
+        });
 
-        // Spawn a dummy target bot for collision/testing
-        this.players['training-bot'] = new Player(250, 300, 'training-bot', "Training Bot",
-            {
-                isSelf: false,
-            }
-        )
+        this.players['training-bot'] = new Player(250, 300, 'training-bot', "Training Bot", {
+            isSelf: false,
+        });
 
-        // Switch to game canvas
         document.getElementById('lobbyScreen').style.display = 'none';
         document.getElementById('gameScreen').style.display = 'flex';
-        document.getElementById('displayRoomCode').innerText = 'SOLO (DEV MODE)';
+        document.getElementById('displayRoomCode').innerText = 'SOLO (OFFLINE)';
     }
 
     setupNetwork() {
-        const createBtn = document.getElementById('createBtn');
-        const joinBtn = document.getElementById('joinBtn');
+        const quickPlayBtn = document.getElementById('quickPlayBtn');
 
         this.network.onConnected = () => {
-            createBtn.disabled = false;
-            joinBtn.disabled = false;
-            createBtn.innerText = 'Create New Room (Online)';
+            quickPlayBtn.innerText = 'Quick Play (Join World)';
         };
 
         this.network.onConnectError = () => {
-            createBtn.innerText = 'Connecting / Waking server...';
+            quickPlayBtn.innerText = 'Connecting / Waking server...';
+        };
+
+        this.network.onLobbyList = (lobbies) => {
+            this.renderLobbyList(lobbies);
         };
 
         this.network.onRoomJoined = (data) => {
