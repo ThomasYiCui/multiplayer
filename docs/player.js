@@ -9,20 +9,57 @@ class Player {
         this.targetY = y;
         this.id = id;
         this.isSelf = opt.isSelf || false;
-        this.playerName = playerName;
+        this.playerName = playerName || 'Adventurer';
+        this.level = opt.level || 1;
+        this.hp = opt.hp !== undefined ? opt.hp : 100;
+        this.maxHp = opt.maxHp !== undefined ? opt.maxHp : 100;
+        this.gold = opt.gold || 0;
         this.speed = 300; // Pixels per second
         this.size = 20;
-        this.color = opt.color || `rgb(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)})`
+        this.color = opt.color || `rgb(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)})`;
     }
 
     display(ctx) {
-        ctx.save()
+        ctx.save();
 
+        // 1. Health Bar & Level Tag above head
+        const barWidth = 40;
+        const barHeight = 5;
+        const barX = this.x - barWidth / 2;
+        const barY = this.y - this.size - 18;
+
+        // Health bar background
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        // Health bar foreground
+        const hpRatio = Math.max(0, Math.min(1, this.hp / this.maxHp));
+        ctx.fillStyle = hpRatio > 0.5 ? '#10b981' : hpRatio > 0.25 ? '#f59e0b' : '#ef4444';
+        ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
+
+        // Health bar border
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        // Level & Name Label
+        ctx.font = 'bold 11px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f8fafc';
+        const tag = `[Lv.${this.level}] ${this.playerName}${this.isSelf ? ' (You)' : ''}`;
+        ctx.fillText(tag, this.x, barY - 4);
+
+        // 2. Body Circle
         ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.ellipse(this.x, this.y, this.size, this.size, 0, 0, 2 * Math.PI);
         ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
+        // 3. Hand / Weapon Pointing Direction
+        ctx.fillStyle = '#f1f5f9';
         ctx.beginPath();
         ctx.ellipse(
             this.x - Math.cos(this.r) * this.size * 1.4,
@@ -31,17 +68,12 @@ class Player {
             0, 0, 2 * Math.PI
         );
         ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
-        ctx.font = 'bold 12px "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#f8fafc';
-        const label = this.isSelf ? `${this.playerName} (You)` : this.playerName;
-        ctx.fillText(label, this.x, this.y + this.size + 15);
-
-        ctx.restore()
-
+        ctx.restore();
     }
-
 
     update(input, game) {
         const dt = input.dt || 0.016;
@@ -93,5 +125,4 @@ class Player {
             }
         }
     }
-
 }

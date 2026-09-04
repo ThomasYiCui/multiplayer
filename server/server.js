@@ -1,23 +1,170 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
 
-// Allow any client (localhost or your GitHub Pages domain)
 const io = new Server(server, {
     cors: { origin: '*' }
 });
 
-// Use cloud port if deployed on Render, otherwise default to 3000
 const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// Store room data: { [roomCode]: { players: { [socketId]: { x, y, name, color } } } }
-const rooms = {};
+// 1. MONGODB SCHEMA & FALLBACK LOCAL DB
+let useMongo = false;
+let UserModel = null;
 
-// Helper: Format uptime (hours, minutes, seconds)
+if (MONGODB_URI) {
+    mongoose.connect(MONGODB_URI)
+        .then(() => {
+            console.log('Connected to MongoDB Atlas');
+            useMongo = true;
+        })
+        .catch(err => {
+            console.warn('MongoDB connection failed, falling back to local file storage:', err.message);
+        });
+}
+
+const userSchema = new mongoose.Schema({
+    username: { type: String, unique: true, required: true },
+    password: { type: String, required: true },
+    level: { type: Number, default: 1 },
+    xp: { type: Number, default: 0 },
+    gold: { type: Number, default: 0 },
+    hp: { type: Number, default: 100 },
+    maxHp: { type: Number, default: 100 },
+    attack: { type: Number, default: 10 },
+    defense: { type: Number, default: 5 },
+    equipment: { type: Object, default: { weapon: null, armor: null } },
+    inventory: { type: Array, default: [] }
+});
+
+try {
+    UserModel = mongoose.model('User', userSchema);
+} catch (e) {
+    UserModel = mongoose.models.User;
+}
+
+// Local JSON fallback database
+const LOCAL_DB_PATH = path.join(__dirname, 'local_database.json');
+function getLocalUsers() {
+    if (!fs.existsSync(LOCAL_DB_PATH)) return {};
+    try {
+        return JSON.parse(fs.readFileSync(LOCAL_DB_PATH, 'utf8'));
+    } catch (e) {
+        return {};
+    }
+}
+function saveLocalUser(user) {
+    const db = getLocalUsers();
+    db[user.username.toLowerCase()] = user;
+    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(db, null, 2));
+}
+
+// Database helper functions
+async function findUser(username) {
+    if (useMongo) {
+        return await UserModel.findOne({ username: new RegExp(`^${username}$`, 'i') });
+    } else {
+        const db = getLocalUsers();
+        return db[username.toLowerCase()] || null;
+    }
+}
+
+async function createUser(username, hashedPassword) {
+    const newUser = {
+        username: username,
+        password: hashedPassword,
+        level: 1,
+        xp: 0,
+        gold: 0,
+        hp: 100,
+        maxHp: 100,
+        attack: 10,
+        defense: 5,
+        equipment: { weapon: null, armor: null },
+        inventory: []
+    };
+
+    if (useMongo) {
+        const doc = new UserModel(newUser);
+        return await doc.save();
+    } else {
+        saveLocalUser(newUser);
+        return newUser;
+    }
+}
+
+async function saveUserStats(userData) {
+    if (useMongo) {
+        await UserModel.updateOne(
+            { username: userData.username },
+            {
+                $set: {
+                    level: userData.level,
+                    xp: userData.xp,
+                    gold: userData.gold,
+                    hp: userData.hp,
+                    maxHp: userData.maxHp,
+                    attack: userData.attack,
+                    defense: userData.defense,
+                    equipment: userData.equipment,
+                    inventory: userData.inventory
+                }
+            }
+        );
+    } else {
+        saveLocalUser(userData);
+    }
+}
+
+// 2. THE 3 PERSISTENT WORLDS (Max 50 players each)
+const WORLDS = {
+    'world-1': {
+        id: 'world-1',
+        name: 'Aethelgard (Forest Realm)',
+        description: 'Lush green forests and ancient ruins.',
+        maxPlayers: 50,
+        players: {}
+    },
+    'world-2': {
+        id: 'world-2',
+        name: 'Ignis (Volcanic Realm)',
+        description: 'Dangerous lava rivers and fiery beasts.',
+        maxPlayers: 50,
+        players: {}
+    },
+    'world-3': {
+        id: 'world-3',
+        name: 'Frostfall (Ice Realm)',
+        description: 'Glacial caverns and freezing blizzards.',
+        maxPlayers: 50,
+        players: {}
+    }
+};
+
+function getWorldsList() {
+    return Object.values(WORLDS).map(w => ({
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        playerCount: Object.keys(w.players).length,
+        maxPlayers: w.maxPlayers
+    }));
+}
+
+function broadcastWorldList() {
+    io.emit('worldList', getWorldsList());
+}
+
+// Helper: Format uptime
 function formatUptime(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -25,36 +172,28 @@ function formatUptime(seconds) {
     return `${h}h ${m}m ${s}s`;
 }
 
-// 1. STATS API ENDPOINT
+// 3. STATS API & HTML DASHBOARD
 app.get('/api/stats', (req, res) => {
     const memory = process.memoryUsage();
     const usedMB = (memory.rss / 1024 / 1024).toFixed(1);
 
     let totalPlayers = 0;
-    const roomList = [];
-
-    for (const code in rooms) {
-        const pCount = Object.keys(rooms[code].players).length;
-        totalPlayers += pCount;
-        roomList.push({
-            code: code,
-            playerCount: pCount,
-            players: Object.values(rooms[code].players).map(p => p.name)
-        });
+    for (const id in WORLDS) {
+        totalPlayers += Object.keys(WORLDS[id].players).length;
     }
 
     res.json({
         status: 'Online',
+        database: useMongo ? 'MongoDB Atlas' : 'Local Storage',
         uptime: formatUptime(process.uptime()),
         totalPlayers,
-        totalRooms: Object.keys(rooms).length,
+        totalRooms: 3,
         memoryUsedMB: usedMB,
-        totalMemoryMB: 512, // Render Free Tier limit
-        rooms: roomList
+        totalMemoryMB: 512,
+        worlds: getWorldsList()
     });
 });
 
-// 2. SERVE LIVE HTML DASHBOARD AT ROOT (https://multiplayer-18xd.onrender.com/)
 app.get('/', (req, res) => {
     res.send(`
 <!DOCTYPE html>
@@ -70,23 +209,21 @@ app.get('/', (req, res) => {
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
     h1 { font-size: 22px; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
     .header-links { display: flex; align-items: center; gap: 12px; }
-    .play-link { background: #0284c7; color: white; text-decoration: none; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; transition: background 0.2s; }
-    .play-link:hover { background: #0369a1; }
+    .play-link { background: #0284c7; color: white; text-decoration: none; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
     .status-badge { background: #064e3b; color: #34d399; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid #059669; }
     
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .card-title { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; letter-spacing: 0.05em; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+    .card-title { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; }
     .card-value { font-size: 28px; font-weight: 700; color: #f8fafc; }
     .progress-bg { background: #334155; border-radius: 6px; height: 8px; margin-top: 10px; overflow: hidden; }
     .progress-fill { background: #38bdf8; height: 100%; width: 0%; transition: width 0.3s ease; }
 
-    .table-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+    .table-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     th { text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid #334155; }
     td { padding: 12px; font-size: 14px; border-bottom: 1px solid #334155; }
-    .room-badge { background: #0f172a; color: #38bdf8; padding: 4px 10px; border-radius: 6px; font-weight: bold; border: 1px solid #334155; letter-spacing: 1px; }
-    .empty-msg { text-align: center; color: #64748b; padding: 24px; font-size: 14px; }
+    .room-badge { background: #0f172a; color: #38bdf8; padding: 4px 10px; border-radius: 6px; font-weight: bold; border: 1px solid #334155; }
   </style>
 </head>
 <body>
@@ -105,8 +242,8 @@ app.get('/', (req, res) => {
         <div class="card-value" id="playerCount">0</div>
       </div>
       <div class="card">
-        <div class="card-title">Active Rooms</div>
-        <div class="card-value" id="roomCount">0</div>
+        <div class="card-title">Database</div>
+        <div class="card-value" style="font-size: 20px; padding-top: 6px;" id="dbStatus">Loading...</div>
       </div>
       <div class="card">
         <div class="card-title">RAM Usage</div>
@@ -120,17 +257,17 @@ app.get('/', (req, res) => {
     </div>
 
     <div class="table-card">
-      <div class="card-title">Live Active Rooms</div>
+      <div class="card-title">Active Worlds (Max 50 Players)</div>
       <table>
         <thead>
           <tr>
-            <th>Room Code</th>
+            <th>World Name</th>
             <th>Players</th>
-            <th>Player Names</th>
+            <th>Status</th>
           </tr>
         </thead>
-        <tbody id="roomsTableBody">
-          <tr><td colspan="3" class="empty-msg">No active rooms right now</td></tr>
+        <tbody id="worldsTableBody">
+          <tr><td colspan="3">Loading worlds...</td></tr>
         </tbody>
       </table>
     </div>
@@ -143,31 +280,23 @@ app.get('/', (req, res) => {
         const data = await res.json();
         
         document.getElementById('playerCount').innerText = data.totalPlayers;
-        document.getElementById('roomCount').innerText = data.totalRooms;
+        document.getElementById('dbStatus').innerText = data.database;
         document.getElementById('uptimeValue').innerText = data.uptime;
         
         const ramPercent = Math.min(100, ((data.memoryUsedMB / data.totalMemoryMB) * 100)).toFixed(0);
         document.getElementById('ramValue').innerText = data.memoryUsedMB + ' / ' + data.totalMemoryMB + ' MB';
         document.getElementById('ramBar').style.width = ramPercent + '%';
 
-        const tbody = document.getElementById('roomsTableBody');
-        if (data.rooms.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3" class="empty-msg">No active rooms right now</td></tr>';
-        } else {
-          tbody.innerHTML = data.rooms.map(r => \`
-            <tr>
-              <td><span class="room-badge">\${r.code}</span></td>
-              <td>\${r.playerCount}</td>
-              <td>\${r.players.join(', ') || 'None'}</td>
-            </tr>
-          \`).join('');
-        }
-
-        document.getElementById('statusBadge').innerText = '🟢 Online';
-        document.getElementById('statusBadge').style.background = '#064e3b';
-        document.getElementById('statusBadge').style.color = '#34d399';
+        const tbody = document.getElementById('worldsTableBody');
+        tbody.innerHTML = data.worlds.map(w => \`
+          <tr>
+            <td><span class="room-badge">\${w.name}</span></td>
+            <td>\${w.playerCount} / \${w.maxPlayers}</td>
+            <td><span style="color: #34d399; font-weight: bold;">Open</span></td>
+          </tr>
+        \`).join('');
       } catch (err) {
-        document.getElementById('statusBadge').innerText = '🔴 Reconnecting...';
+        document.getElementById('statusBadge').innerText = 'Reconnecting...';
         document.getElementById('statusBadge').style.background = '#7f1d1d';
         document.getElementById('statusBadge').style.color = '#fca5a5';
       }
@@ -181,158 +310,186 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Helper: Return list of public lobbies
-function getLobbiesList() {
-    const list = [];
-    for (const id in rooms) {
-        const count = Object.keys(rooms[id].players).length;
-        if (count > 0) {
-            list.push({
-                id: id,
-                name: rooms[id].name || `Lobby ${id}`,
-                playerCount: count,
-                maxPlayers: rooms[id].maxPlayers || 8
-            });
-        }
-    }
-    return list;
-}
-
-function broadcastLobbies() {
-    io.emit('lobbyList', getLobbiesList());
-}
-
-let lobbyCounter = 1;
-
+// 4. SOCKET.IO MULTIPLAYER & AUTHENTICATION
 io.on('connection', (socket) => {
-    let currentRoom = null;
+    let currentWorld = null;
+    let currentUser = null;
 
     console.log(`[+] Connected: ${socket.id}`);
 
-    // Send current lobby list upon connection
-    socket.emit('lobbyList', getLobbiesList());
+    // Send world list on connect
+    socket.emit('worldList', getWorldsList());
 
-    // 1. CREATE LOBBY
-    socket.on('createLobby', ({ lobbyName, playerName }) => {
-        const lobbyId = 'LOBBY-' + (lobbyCounter++);
-        const displayName = lobbyName && lobbyName.trim().length > 0 
-            ? lobbyName.trim() 
-            : `${playerName || 'Player'}'s World`;
-
-        rooms[lobbyId] = {
-            id: lobbyId,
-            name: displayName,
-            players: {},
-            maxPlayers: 8
-        };
-
-        joinLobbyLogic(socket, lobbyId, playerName);
-    });
-
-    // 2. JOIN SPECIFIC LOBBY BY ID (1-Click from list)
-    socket.on('joinLobby', ({ lobbyId, playerName }) => {
-        if (!rooms[lobbyId]) {
-            return socket.emit('errorMsg', 'Lobby no longer exists!');
-        }
-        joinLobbyLogic(socket, lobbyId, playerName);
-    });
-
-    // 3. QUICK PLAY (Join existing open lobby or create one)
-    socket.on('quickPlay', ({ playerName }) => {
-        let targetLobbyId = null;
-        for (const id in rooms) {
-            const count = Object.keys(rooms[id].players).length;
-            if (count > 0 && count < (rooms[id].maxPlayers || 8)) {
-                targetLobbyId = id;
-                break;
+    // REGISTER ACCOUNT
+    socket.on('register', async ({ username, password }) => {
+        try {
+            const cleanUser = username?.trim();
+            if (!cleanUser || cleanUser.length < 3) {
+                return socket.emit('authError', 'Username must be at least 3 characters.');
             }
-        }
+            if (!password || password.length < 4) {
+                return socket.emit('authError', 'Password must be at least 4 characters.');
+            }
 
-        if (targetLobbyId) {
-            joinLobbyLogic(socket, targetLobbyId, playerName);
-        } else {
-            const lobbyId = 'LOBBY-' + (lobbyCounter++);
-            rooms[lobbyId] = {
-                id: lobbyId,
-                name: `Public World ${lobbyCounter - 1}`,
-                players: {},
-                maxPlayers: 8
+            const existing = await findUser(cleanUser);
+            if (existing) {
+                return socket.emit('authError', 'Username already taken. Please choose another.');
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const user = await createUser(cleanUser, hashedPassword);
+
+            currentUser = {
+                username: user.username,
+                level: user.level || 1,
+                xp: user.xp || 0,
+                gold: user.gold || 0,
+                hp: user.hp || 100,
+                maxHp: user.maxHp || 100,
+                attack: user.attack || 10,
+                defense: user.defense || 5,
+                equipment: user.equipment || {},
+                inventory: user.inventory || []
             };
-            joinLobbyLogic(socket, lobbyId, playerName);
+
+            socket.emit('authSuccess', { user: currentUser });
+            console.log(`Registered new player: ${cleanUser}`);
+        } catch (err) {
+            console.error('Register error:', err);
+            socket.emit('authError', 'Server registration error.');
         }
     });
 
-    // Reusable join logic
-    function joinLobbyLogic(socket, lobbyId, playerName) {
-        if (currentRoom && rooms[currentRoom]) {
-            delete rooms[currentRoom].players[socket.id];
-            socket.leave(currentRoom);
-            socket.to(currentRoom).emit('playerLeft', socket.id);
+    // LOGIN ACCOUNT
+    socket.on('login', async ({ username, password }) => {
+        try {
+            const cleanUser = username?.trim();
+            if (!cleanUser || !password) {
+                return socket.emit('authError', 'Please enter username and password.');
+            }
+
+            const user = await findUser(cleanUser);
+            if (!user) {
+                return socket.emit('authError', 'User not found. Please register first.');
+            }
+
+            const match = await bcrypt.compare(password, user.password);
+            if (!match) {
+                return socket.emit('authError', 'Incorrect password.');
+            }
+
+            currentUser = {
+                username: user.username,
+                level: user.level || 1,
+                xp: user.xp || 0,
+                gold: user.gold || 0,
+                hp: user.hp || 100,
+                maxHp: user.maxHp || 100,
+                attack: user.attack || 10,
+                defense: user.defense || 5,
+                equipment: user.equipment || {},
+                inventory: user.inventory || []
+            };
+
+            socket.emit('authSuccess', { user: currentUser });
+            console.log(`Player logged in: ${cleanUser}`);
+        } catch (err) {
+            console.error('Login error:', err);
+            socket.emit('authError', 'Server login error.');
+        }
+    });
+
+    // JOIN ONE OF THE 3 WORLDS
+    socket.on('joinWorld', ({ worldId }) => {
+        if (!currentUser) {
+            return socket.emit('authError', 'Please login before entering a world.');
         }
 
-        currentRoom = lobbyId;
-        socket.join(lobbyId);
+        const world = WORLDS[worldId];
+        if (!world) {
+            return socket.emit('errorMsg', 'World not found.');
+        }
+
+        const currentCount = Object.keys(world.players).length;
+        if (currentCount >= world.maxPlayers) {
+            return socket.emit('errorMsg', 'This world is currently full (50/50 players).');
+        }
+
+        // Leave any previous world
+        if (currentWorld && WORLDS[currentWorld]) {
+            delete WORLDS[currentWorld].players[socket.id];
+            socket.to(currentWorld).emit('playerLeft', socket.id);
+            socket.leave(currentWorld);
+        }
+
+        currentWorld = worldId;
+        socket.join(worldId);
 
         const newPlayer = {
             id: socket.id,
-            name: playerName || `Player-${socket.id.substring(0, 4)}`,
+            name: currentUser.username,
+            level: currentUser.level,
+            hp: currentUser.hp,
+            maxHp: currentUser.maxHp,
+            gold: currentUser.gold,
             x: Math.floor(Math.random() * 400) + 100,
             y: Math.floor(Math.random() * 300) + 100,
+            r: 0,
             color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')
         };
 
-        rooms[lobbyId].players[socket.id] = newPlayer;
+        world.players[socket.id] = newPlayer;
 
-        socket.emit('roomJoined', {
-            roomCode: rooms[lobbyId].name,
-            roomId: lobbyId,
+        socket.emit('worldJoined', {
+            worldId: world.id,
+            worldName: world.name,
             selfId: socket.id,
-            players: rooms[lobbyId].players
+            user: currentUser,
+            players: world.players
         });
 
-        socket.to(lobbyId).emit('playerJoined', newPlayer);
-        broadcastLobbies();
-        console.log(`Player ${newPlayer.name} joined: ${rooms[lobbyId].name}`);
-    }
-
-    // 4. LEAVE LOBBY
-    socket.on('leaveLobby', () => {
-        if (currentRoom && rooms[currentRoom]) {
-            delete rooms[currentRoom].players[socket.id];
-            socket.to(currentRoom).emit('playerLeft', socket.id);
-            socket.leave(currentRoom);
-
-            if (Object.keys(rooms[currentRoom].players).length === 0) {
-                delete rooms[currentRoom];
-            }
-            currentRoom = null;
-            broadcastLobbies();
-        }
-        socket.emit('lobbyList', getLobbiesList());
+        socket.to(worldId).emit('playerJoined', newPlayer);
+        broadcastWorldList();
+        console.log(`Player ${currentUser.username} entered ${world.name}`);
     });
 
-    // 5. MOVEMENT / POSITION UPDATE
+    // LEAVE WORLD BACK TO WORLD SELECT
+    socket.on('leaveWorld', async () => {
+        if (currentWorld && WORLDS[currentWorld]) {
+            delete WORLDS[currentWorld].players[socket.id];
+            socket.to(currentWorld).emit('playerLeft', socket.id);
+            socket.leave(currentWorld);
+            currentWorld = null;
+            broadcastWorldList();
+        }
+        if (currentUser) {
+            await saveUserStats(currentUser);
+        }
+        socket.emit('worldList', getWorldsList());
+    });
+
+    // MOVEMENT
     socket.on('playerMove', (data) => {
-        if (currentRoom && rooms[currentRoom]?.players[socket.id]) {
-            const p = rooms[currentRoom].players[socket.id];
+        if (currentWorld && WORLDS[currentWorld]?.players[socket.id]) {
+            const p = WORLDS[currentWorld].players[socket.id];
             p.x = data.x;
             p.y = data.y;
 
-            socket.to(currentRoom).emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
+            socket.to(currentWorld).emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
         }
     });
 
-    // 6. MOUSE / CLICK / DRAG / ROTATION UPDATE
+    // MOUSE & ROTATION
     socket.on('playerMouse', (data) => {
-        if (currentRoom && rooms[currentRoom]?.players[socket.id]) {
-            const p = rooms[currentRoom].players[socket.id];
+        if (currentWorld && WORLDS[currentWorld]?.players[socket.id]) {
+            const p = WORLDS[currentWorld].players[socket.id];
             p.mouseX = data.mouseX;
             p.mouseY = data.mouseY;
             p.r = data.r;
             p.clicked = data.clicked;
             p.dragged = data.dragged;
 
-            socket.to(currentRoom).emit('playerMouse', {
+            socket.to(currentWorld).emit('playerMouse', {
                 id: socket.id,
                 mouseX: data.mouseX,
                 mouseY: data.mouseY,
@@ -343,21 +500,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 7. DISCONNECT
-    socket.on('disconnect', () => {
-        if (currentRoom && rooms[currentRoom]) {
-            delete rooms[currentRoom].players[socket.id];
-            socket.to(currentRoom).emit('playerLeft', socket.id);
-
-            if (Object.keys(rooms[currentRoom].players).length === 0) {
-                delete rooms[currentRoom];
-            }
-            broadcastLobbies();
+    // DISCONNECT
+    socket.on('disconnect', async () => {
+        if (currentWorld && WORLDS[currentWorld]) {
+            delete WORLDS[currentWorld].players[socket.id];
+            socket.to(currentWorld).emit('playerLeft', socket.id);
+            broadcastWorldList();
+        }
+        if (currentUser) {
+            await saveUserStats(currentUser);
         }
         console.log(`[-] Disconnected: ${socket.id}`);
     });
 });
 
 server.listen(PORT, () => {
-    console.log(`🎮 Game Server running on port ${PORT}`);
+    console.log(`RPG Game Server running on port ${PORT}`);
 });

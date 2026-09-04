@@ -3,13 +3,16 @@ class NetworkManager {
         this.serverUrl = serverUrl;
         this.socket = null;
         this.selfId = null;
-        this.roomCode = null;
+        this.currentWorldId = null;
+        this.currentUser = null;
 
         // Event callbacks
         this.onConnected = null;
         this.onConnectError = null;
-        this.onLobbyList = null;
-        this.onRoomJoined = null;
+        this.onAuthSuccess = null;
+        this.onAuthError = null;
+        this.onWorldList = null;
+        this.onWorldJoined = null;
         this.onPlayerJoined = null;
         this.onPlayerMoved = null;
         this.onPlayerMouse = null;
@@ -30,23 +33,35 @@ class NetworkManager {
         });
 
         this.socket.on('connect_error', (err) => {
-            console.warn('[Network] Connection error (server may be waking up):', err.message);
+            console.warn('[Network] Connection error:', err.message);
             if (this.onConnectError) this.onConnectError(err);
         });
 
-        this.socket.on('lobbyList', (lobbies) => {
-            if (this.onLobbyList) this.onLobbyList(lobbies);
+        this.socket.on('authSuccess', (data) => {
+            console.log('[Network] Auth success:', data.user);
+            this.currentUser = data.user;
+            if (this.onAuthSuccess) this.onAuthSuccess(data.user);
         });
 
-        this.socket.on('roomJoined', (data) => {
-            console.log('[Network] Room joined:', data);
+        this.socket.on('authError', (msg) => {
+            console.warn('[Network] Auth error:', msg);
+            if (this.onAuthError) this.onAuthError(msg);
+        });
+
+        this.socket.on('worldList', (worlds) => {
+            if (this.onWorldList) this.onWorldList(worlds);
+        });
+
+        this.socket.on('worldJoined', (data) => {
+            console.log('[Network] World joined:', data);
             this.selfId = data.selfId;
-            this.roomCode = data.roomCode;
-            if (this.onRoomJoined) this.onRoomJoined(data);
+            this.currentWorldId = data.worldId;
+            this.currentUser = data.user;
+            if (this.onWorldJoined) this.onWorldJoined(data);
         });
 
         this.socket.on('playerJoined', (player) => {
-            console.log('[Network] New player joined room:', player);
+            console.log('[Network] Player joined world:', player);
             if (this.onPlayerJoined) this.onPlayerJoined(player);
         });
 
@@ -59,43 +74,43 @@ class NetworkManager {
         });
 
         this.socket.on('playerLeft', (id) => {
-            console.log('[Network] Player left room:', id);
+            console.log('[Network] Player left world:', id);
             if (this.onPlayerLeft) this.onPlayerLeft(id);
         });
 
         this.socket.on('errorMsg', (msg) => {
-            console.error('[Network] Server returned error:', msg);
+            console.error('[Network] Server error:', msg);
             if (this.onError) this.onError(msg);
         });
     }
 
-    createLobby(lobbyName, playerName) {
+    register(username, password) {
         if (!this.socket || !this.socket.connected) {
-            alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again!');
+            alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again.');
             return;
         }
-        this.socket.emit('createLobby', { lobbyName, playerName });
+        this.socket.emit('register', { username, password });
     }
 
-    joinLobby(lobbyId, playerName) {
+    login(username, password) {
         if (!this.socket || !this.socket.connected) {
-            alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again!');
+            alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again.');
             return;
         }
-        this.socket.emit('joinLobby', { lobbyId, playerName });
+        this.socket.emit('login', { username, password });
     }
 
-    quickPlay(playerName) {
+    joinWorld(worldId) {
         if (!this.socket || !this.socket.connected) {
-            alert('Server is waking up (takes ~30s on free hosting). Please wait a moment and try again!');
+            alert('Server is waking up. Please wait a moment and try again.');
             return;
         }
-        this.socket.emit('quickPlay', { playerName });
+        this.socket.emit('joinWorld', { worldId });
     }
 
-    leaveLobby() {
+    leaveWorld() {
         if (this.socket && this.socket.connected) {
-            this.socket.emit('leaveLobby');
+            this.socket.emit('leaveWorld');
         }
     }
 
@@ -111,4 +126,3 @@ class NetworkManager {
         }
     }
 }
-

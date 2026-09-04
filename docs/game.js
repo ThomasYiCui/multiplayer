@@ -1,9 +1,8 @@
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
-        this.canvas.width = window.innerWidth
-        this.canvas.height = window.innerHeight
-
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
 
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
@@ -15,6 +14,10 @@ class Game {
         this.clicked = false;
         this.dragged = false;
         this.isOffline = false;
+
+        this.authMode = 'login'; // 'login' or 'register'
+        this.currentUser = null;
+        this.currentWorldName = '';
 
         const SERVER_URL = 'https://multiplayer-l8xd.onrender.com';
         this.network = new NetworkManager(SERVER_URL);
@@ -29,121 +32,245 @@ class Game {
     }
 
     setupUI() {
-        const nameInput = document.getElementById('playerNameInput');
-        const lobbyNameInput = document.getElementById('lobbyNameInput');
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        const authSubmitBtn = document.getElementById('authSubmitBtn');
+        const authError = document.getElementById('authError');
+        const usernameInput = document.getElementById('authUsername');
+        const passwordInput = document.getElementById('authPassword');
 
-        document.getElementById('quickPlayBtn').addEventListener('click', () => {
-            const name = nameInput.value.trim() || 'Player';
-            this.network.quickPlay(name);
+        // Tab Switching
+        tabLogin.addEventListener('click', () => {
+            this.authMode = 'login';
+            tabLogin.classList.add('active');
+            tabRegister.classList.remove('active');
+            authSubmitBtn.innerText = 'Login';
+            authError.style.display = 'none';
         });
 
-        document.getElementById('createLobbyBtn').addEventListener('click', () => {
-            const name = nameInput.value.trim() || 'Player';
-            const lobbyName = lobbyNameInput.value.trim();
-            this.network.createLobby(lobbyName, name);
+        tabRegister.addEventListener('click', () => {
+            this.authMode = 'register';
+            tabRegister.classList.add('active');
+            tabLogin.classList.remove('active');
+            authSubmitBtn.innerText = 'Create Account';
+            authError.style.display = 'none';
         });
 
+        // Form Submit
+        const submitAuth = () => {
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!username) {
+                this.showAuthError('Please enter a username.');
+                return;
+            }
+            if (!password) {
+                this.showAuthError('Please enter a password.');
+                return;
+            }
+
+            authError.style.display = 'none';
+
+            if (this.authMode === 'login') {
+                this.network.login(username, password);
+            } else {
+                this.network.register(username, password);
+            }
+        };
+
+        authSubmitBtn.addEventListener('click', submitAuth);
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAuth();
+        });
+        usernameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAuth();
+        });
+
+        // Offline Dev Mode
         document.getElementById('offlineBtn').addEventListener('click', () => {
-            const name = nameInput.value.trim() || 'SoloDev';
+            const name = usernameInput.value.trim() || 'SoloDev';
             this.startOfflineMode(name);
         });
 
-        document.getElementById('leaveBtn').addEventListener('click', () => {
-            this.leaveGame();
+        // Log Out
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            this.currentUser = null;
+            this.showScreen('authScreen');
+        });
+
+        // Leave Realm
+        document.getElementById('leaveWorldBtn').addEventListener('click', () => {
+            this.leaveWorld();
         });
     }
 
-    renderLobbyList(lobbies) {
-        const container = document.getElementById('lobbiesContainer');
-        if (!container) return;
-        const nameInput = document.getElementById('playerNameInput');
+    showAuthError(msg) {
+        const authError = document.getElementById('authError');
+        authError.innerText = msg;
+        authError.style.display = 'block';
+    }
 
-        if (!lobbies || lobbies.length === 0) {
-            container.innerHTML = `<div style="text-align: center; color: #64748b; font-size: 13px; padding: 14px;">No active lobbies. Click <strong>Quick Play</strong> or <strong>Host Lobby</strong> to start!</div>`;
+    showScreen(screenId) {
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('worldScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'none';
+
+        const target = document.getElementById(screenId);
+        if (target) {
+            target.style.display = 'flex';
+        }
+    }
+
+    updateUserProfileUI(user) {
+        if (!user) return;
+        document.getElementById('headerUsername').innerText = user.username;
+        document.getElementById('headerUserLevel').innerText = `Level ${user.level || 1}`;
+        document.getElementById('headerUserGold').innerText = `${user.gold || 0} Gold`;
+
+        document.getElementById('hudPlayerLevel').innerText = `Lv. ${user.level || 1}`;
+        document.getElementById('hudGoldText').innerText = `${user.gold || 0} Gold`;
+
+        const maxHp = user.maxHp || 100;
+        const hp = user.hp !== undefined ? user.hp : 100;
+        const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
+        document.getElementById('hudHpFill').style.width = `${hpRatio * 100}%`;
+        document.getElementById('hudHpText').innerText = `${hp} / ${maxHp}`;
+    }
+
+    renderWorldsGrid(worlds) {
+        const grid = document.getElementById('worldsGrid');
+        if (!grid) return;
+
+        if (!worlds || worlds.length === 0) {
+            grid.innerHTML = '<div style="color: #94a3b8; text-align: center; grid-column: 1 / -1;">Connecting to realm servers...</div>';
             return;
         }
 
-        container.innerHTML = '';
-        lobbies.forEach(lobby => {
-            const item = document.createElement('div');
-            item.className = 'lobby-item';
-            item.innerHTML = `
-                <div>
-                    <span class="lobby-name">${lobby.name}</span>
-                    <span class="lobby-badge">${lobby.playerCount} / ${lobby.maxPlayers} Players</span>
+        const themes = {
+            'world-1': 'theme-forest',
+            'world-2': 'theme-volcano',
+            'world-3': 'theme-ice'
+        };
+
+        grid.innerHTML = worlds.map(w => {
+            const isFull = w.playerCount >= w.maxPlayers;
+            const themeClass = themes[w.id] || 'theme-forest';
+
+            return `
+                <div class="world-card ${themeClass}">
+                    <div class="world-theme-bar"></div>
+                    <div>
+                        <div class="world-card-title">${w.name}</div>
+                        <div class="world-card-desc">${w.description}</div>
+                    </div>
+                    <div>
+                        <div class="world-meta">
+                            <span class="world-players-count">${w.playerCount} / ${w.maxPlayers} Players</span>
+                            <span class="world-status-tag ${isFull ? 'full' : 'open'}">${isFull ? 'Full' : 'Open'}</span>
+                        </div>
+                        <button class="enter-world-btn" data-world-id="${w.id}" ${isFull ? 'disabled' : ''}>
+                            ${isFull ? 'World Full' : 'Enter Realm'}
+                        </button>
+                    </div>
                 </div>
-                <button class="join-lobby-btn">Join</button>
             `;
-            item.querySelector('button').addEventListener('click', () => {
-                const name = nameInput.value.trim() || 'Player';
-                this.network.joinLobby(lobby.id, name);
+        }).join('');
+
+        // Attach click listeners to Enter Realm buttons
+        grid.querySelectorAll('.enter-world-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const worldId = btn.getAttribute('data-world-id');
+                this.network.joinWorld(worldId);
             });
-            container.appendChild(item);
         });
     }
 
-    leaveGame() {
+    leaveWorld() {
         this.isOffline = false;
         this.players = {};
         this.selfId = null;
-        this.network.leaveLobby();
-
-        document.getElementById('gameScreen').style.display = 'none';
-        document.getElementById('lobbyScreen').style.display = 'flex';
+        this.network.leaveWorld();
+        this.showScreen('worldScreen');
     }
 
     startOfflineMode(playerName) {
         this.isOffline = true;
         this.selfId = 'solo-player';
+        this.currentUser = {
+            username: playerName,
+            level: 1,
+            hp: 100,
+            maxHp: 100,
+            gold: 50
+        };
+
+        this.updateUserProfileUI(this.currentUser);
+        document.getElementById('hudWorldName').innerText = 'Solo Practice Realm';
 
         this.players[this.selfId] = new Player(400, 300, this.selfId, playerName, {
             isSelf: true,
+            level: 1,
+            hp: 100,
+            maxHp: 100
         });
 
-        this.players['training-bot'] = new Player(250, 300, 'training-bot', "Training Bot", {
+        this.players['training-dummy'] = new Player(250, 300, 'training-dummy', "Training Dummy", {
             isSelf: false,
+            level: 1,
+            hp: 80,
+            maxHp: 80
         });
 
-        document.getElementById('lobbyScreen').style.display = 'none';
-        document.getElementById('gameScreen').style.display = 'flex';
-        document.getElementById('displayRoomCode').innerText = 'SOLO (OFFLINE)';
+        this.showScreen('gameScreen');
     }
 
     setupNetwork() {
-        const quickPlayBtn = document.getElementById('quickPlayBtn');
-
-        this.network.onConnected = () => {
-            quickPlayBtn.innerText = 'Quick Play (Join World)';
+        this.network.onAuthSuccess = (user) => {
+            this.currentUser = user;
+            this.updateUserProfileUI(user);
+            this.showScreen('worldScreen');
         };
 
-        this.network.onConnectError = () => {
-            quickPlayBtn.innerText = 'Connecting / Waking server...';
+        this.network.onAuthError = (msg) => {
+            this.showAuthError(msg);
         };
 
-        this.network.onLobbyList = (lobbies) => {
-            this.renderLobbyList(lobbies);
+        this.network.onWorldList = (worlds) => {
+            this.renderWorldsGrid(worlds);
         };
 
-        this.network.onRoomJoined = (data) => {
+        this.network.onWorldJoined = (data) => {
             this.selfId = data.selfId;
+            this.currentUser = data.user;
+            this.currentWorldName = data.worldName;
             this.players = {};
+
+            document.getElementById('hudWorldName').innerText = data.worldName;
+            this.updateUserProfileUI(data.user);
 
             for (const id in data.players) {
                 const p = data.players[id];
                 this.players[id] = new Player(p.x, p.y, p.id, p.name, {
                     isSelf: p.id === this.selfId,
+                    level: p.level || 1,
+                    hp: p.hp || 100,
+                    maxHp: p.maxHp || 100,
+                    gold: p.gold || 0,
                     color: p.color
                 });
             }
 
-            document.getElementById('lobbyScreen').style.display = 'none';
-            document.getElementById('gameScreen').style.display = 'flex';
-            document.getElementById('displayRoomCode').innerText = data.roomCode;
+            this.showScreen('gameScreen');
         };
 
         this.network.onPlayerJoined = (p) => {
             this.players[p.id] = new Player(p.x, p.y, p.id, p.name, {
                 isSelf: false,
+                level: p.level || 1,
+                hp: p.hp || 100,
+                maxHp: p.maxHp || 100,
+                gold: p.gold || 0,
                 color: p.color
             });
         };
@@ -193,16 +320,16 @@ class Game {
         resize();
 
         window.addEventListener("mousemove", (e) => {
-            var cRect = this.canvas.getBoundingClientRect();
+            const cRect = this.canvas.getBoundingClientRect();
             this.mouseX = Math.round(e.clientX - cRect.left);
             this.mouseY = Math.round(e.clientY - cRect.top);
         });
 
-        window.addEventListener("mousedown", (e) => {
+        window.addEventListener("mousedown", () => {
             this.dragged = true;
         }, false);
 
-        window.addEventListener("mouseup", (e) => {
+        window.addEventListener("mouseup", () => {
             if (this.dragged === true) {
                 this.clicked = true;
                 this.dragged = false;

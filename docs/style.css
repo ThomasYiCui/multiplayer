@@ -2,7 +2,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 body {
@@ -11,7 +11,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     overflow: hidden;
 }
 
@@ -20,32 +20,78 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 100%;
+    width: 100vw;
+    height: 100vh;
 }
 
-/* Lobby Card */
-.card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 12px;
-    padding: 32px;
-    width: 360px;
+/* AUTHENTICATION SCREEN */
+.auth-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 380px;
     text-align: center;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
 h1 {
-    font-size: 24px;
-    margin-bottom: 4px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
     color: #38bdf8;
+    margin-bottom: 4px;
 }
 
 .subtitle {
-    font-size: 14px;
+    font-size: 13px;
     color: #94a3b8;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
+/* Tabs */
+.auth-tabs {
+    display: flex;
+    background: #0b0f19;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 20px;
+    gap: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: #1e293b;
+    color: #38bdf8;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Error banner */
+.auth-error {
+    background: #450a0a;
+    border: 1px solid #991b1b;
+    color: #fca5a5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+/* Form inputs */
 .form-group {
     text-align: left;
     margin-bottom: 16px;
@@ -53,39 +99,39 @@ h1 {
 
 .form-group label {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 700;
     color: #94a3b8;
     margin-bottom: 6px;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 input {
     width: 100%;
-    padding: 10px 12px;
-    background: #0f172a;
-    border: 1px solid #475569;
-    border-radius: 6px;
-    color: white;
+    padding: 12px 14px;
+    background: #0b0f19;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #f8fafc;
     font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
 }
 
 input:focus {
     border-color: #38bdf8;
-    outline: none;
 }
 
 .btn {
     width: 100%;
     padding: 12px;
     border: none;
-    border-radius: 6px;
-    font-weight: 600;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
-    transition: opacity 0.2s;
-}
-
-.btn:hover {
-    opacity: 0.9;
+    transition: all 0.2s;
 }
 
 .btn.primary {
@@ -93,94 +139,104 @@ input:focus {
     color: white;
 }
 
+.btn.primary:hover {
+    background: #0369a1;
+}
+
 .btn.secondary {
-    background: #3b82f6;
-    color: white;
-    width: auto;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+}
+
+.btn.secondary:hover {
+    background: #334155;
 }
 
 .divider {
     margin: 20px 0;
     position: relative;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid #1f2937;
 }
 
 .divider span {
     position: absolute;
-    top: -10px;
+    top: -9px;
     left: 50%;
     transform: translateX(-50%);
-    background: #1e293b;
-    padding: 0 8px;
+    background: #111827;
+    padding: 0 10px;
     font-size: 11px;
-    color: #64748b;
+    font-weight: 700;
+    color: #475569;
 }
 
-.join-group {
-    display: flex;
-    gap: 8px;
+/* WORLD SELECTION SCREEN */
+.world-container {
+    max-width: 960px;
+    width: 90%;
+    margin: 0 auto;
 }
 
-.join-group input {
-    text-transform: uppercase;
-    text-align: center;
-    letter-spacing: 2px;
-    font-weight: bold;
-}
-
-/* Game Canvas & HUD */
-.hud {
-    display: flex;
-    justify-content: space-between;
-    width: 800px;
-    margin-bottom: 8px;
-    font-size: 14px;
-    color: #94a3b8;
-}
-
-.room-tag {
-    color: #38bdf8;
-    background: #1e293b;
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-/* Lobby Browser Item */
-.lobby-item {
+.world-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #0f172a;
+    background: #111827;
+    border: 1px solid #1f2937;
+    padding: 20px 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.world-header h2 {
+    font-size: 22px;
+    color: #38bdf8;
+    margin-bottom: 4px;
+}
+
+.user-pill {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #0b0f19;
     border: 1px solid #334155;
-    padding: 10px 14px;
-    border-radius: 8px;
-    transition: border-color 0.2s;
+    padding: 8px 16px;
+    border-radius: 12px;
 }
 
-.lobby-item:hover {
-    border-color: #38bdf8;
+.user-pill-info {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    gap: 2px;
 }
 
-.lobby-name {
-    font-weight: 600;
+.user-pill-name {
+    font-weight: 700;
     font-size: 14px;
     color: #f8fafc;
 }
 
-.lobby-badge {
+.user-pill-lvl {
     font-size: 12px;
-    background: #1e293b;
-    color: #94a3b8;
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-left: 8px;
+    color: #38bdf8;
+    font-weight: 600;
 }
 
-.join-lobby-btn {
-    background: #0284c7;
-    color: white;
+.user-pill-gold {
+    font-size: 12px;
+    color: #fbbf24;
+    font-weight: 600;
+}
+
+.logout-btn {
+    background: #334155;
     border: none;
-    padding: 6px 14px;
+    color: #cbd5e1;
+    padding: 6px 12px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
@@ -188,8 +244,212 @@ input:focus {
     transition: background 0.2s;
 }
 
-.join-lobby-btn:hover {
+.logout-btn:hover {
+    background: #ef4444;
+    color: white;
+}
+
+/* World Cards Grid */
+.worlds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.world-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.world-card:hover {
+    transform: translateY(-4px);
+    border-color: #38bdf8;
+    box-shadow: 0 12px 30px rgba(56, 189, 248, 0.15);
+}
+
+.world-theme-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.world-card.theme-forest .world-theme-bar { background: #10b981; }
+.world-card.theme-volcano .world-theme-bar { background: #ef4444; }
+.world-card.theme-ice .world-theme-bar { background: #38bdf8; }
+
+.world-card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 6px;
+}
+
+.world-card-desc {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.4;
+    margin-bottom: 20px;
+    min-height: 38px;
+}
+
+.world-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #1f2937;
+}
+
+.world-players-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.world-status-tag {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
+
+.world-status-tag.open {
+    background: #064e3b;
+    color: #34d399;
+}
+
+.world-status-tag.full {
+    background: #7f1d1d;
+    color: #fca5a5;
+}
+
+.enter-world-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #0284c7;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.enter-world-btn:hover {
     background: #0369a1;
+}
+
+.enter-world-btn:disabled {
+    background: #334155;
+    color: #64748b;
+    cursor: not-allowed;
+}
+
+/* GAME CANVAS & HUD */
+.game-hud {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid #334155;
+    padding: 10px 18px;
+    border-radius: 12px;
+    z-index: 10;
+}
+
+.hud-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.realm-badge {
+    background: #0284c7;
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.hud-stat {
+    font-size: 13px;
+    font-weight: 700;
+    color: #38bdf8;
+}
+
+.hud-hp-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hud-hp-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #ef4444;
+}
+
+.hud-hp-bg {
+    width: 120px;
+    height: 10px;
+    background: #334155;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #475569;
+}
+
+.hud-hp-fill {
+    height: 100%;
+    background: #10b981;
+    transition: width 0.2s ease;
+}
+
+.hud-hp-text {
+    font-size: 12px;
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.hud-gold {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.leave-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.leave-btn:hover {
+    opacity: 0.9;
 }
 
 canvas {
