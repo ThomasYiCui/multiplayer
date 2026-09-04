@@ -9,7 +9,7 @@ class Game {
         this.keys = { up: false, down: false, left: false, right: false };
 
         // Connect to your live Render server
-        const SERVER_URL = 'https://multiplayer-18xd.onrender.com';
+        const SERVER_URL = 'https://multiplayer-l8xd.onrender.com';
         this.network = new NetworkManager(SERVER_URL);
         this.network.connect();
 
