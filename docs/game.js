@@ -38,6 +38,19 @@ class Game {
     }
 
     setupNetwork() {
+        const createBtn = document.getElementById('createBtn');
+        const joinBtn = document.getElementById('joinBtn');
+
+        this.network.onConnected = () => {
+            createBtn.disabled = false;
+            joinBtn.disabled = false;
+            createBtn.innerText = 'Create New Room (Online)';
+        };
+
+        this.network.onConnectError = () => {
+            createBtn.innerText = 'Connecting / Waking server...';
+        };
+
         this.network.onRoomJoined = (data) => {
             this.selfId = data.selfId;
             this.players = data.players;
