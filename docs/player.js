@@ -4,15 +4,14 @@ class Player {
         this.y = y;
         this.mouseX = 0;
         this.mouseY = 0;
-        this.clicked = false;
-        this.dragged = false;
+        this.r = 0;
         this.targetX = x;
         this.targetY = y;
         this.id = id;
         this.isSelf = opt.isSelf || false;
         this.playerName = playerName;
         this.speed = 5;
-        this.size = 34;
+        this.size = 20;
         this.color = opt.color || `rgb(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)})`
     }
 
@@ -20,13 +19,24 @@ class Player {
         ctx.save()
 
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.size, this.size);
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.size, this.size, 0, 0, 2 * Math.PI);
+        ctx.fill();
 
-        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        ctx.beginPath();
+        ctx.ellipse(
+            this.x - Math.cos(this.r) * this.size * 1.4,
+            this.y - Math.sin(this.r) * this.size * 1.4,
+            this.size * 0.35, this.size * 0.35,
+            0, 0, 2 * Math.PI
+        );
+        ctx.fill();
+
+        ctx.font = 'bold 12px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#f8fafc';
         const label = this.isSelf ? `${this.playerName} (You)` : this.playerName;
-        ctx.fillText(label, this.x + this.size / 2, this.y - this.size / 2);
+        ctx.fillText(label, this.x, this.y + this.size + 15);
 
         ctx.restore()
 
@@ -61,6 +71,8 @@ class Player {
             this.clicked = input.clicked;
             this.dragged = input.dragged;
 
+            this.r = Math.atan2(this.y - this.mouseY, this.x - this.mouseX);
+
             if (game && !game.isOffline && game.network) {
                 if (moved) {
                     game.network.sendMove(this.x, this.y);
@@ -71,6 +83,7 @@ class Player {
             }
         }
         if (!this.isSelf) {
+            this.r = Math.atan2(this.y - this.mouseY, this.x - this.mouseX);
             if (this.targetX !== undefined && this.targetY !== undefined) {
                 this.x += (this.targetX - this.x) * 0.25;
                 this.y += (this.targetY - this.y) * 0.25;

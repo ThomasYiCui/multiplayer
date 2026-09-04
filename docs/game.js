@@ -142,17 +142,24 @@ class Game {
             this.keys[e.code] = false;
         });
 
-        this.canvas.addEventListener("mousemove", (e) => {
+        const resize = () => {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', resize);
+        resize();
+
+        window.addEventListener("mousemove", (e) => {
             var cRect = this.canvas.getBoundingClientRect();
             this.mouseX = Math.round(e.clientX - cRect.left);
             this.mouseY = Math.round(e.clientY - cRect.top);
         });
 
-        this.canvas.addEventListener("mousedown", (e) => {
+        window.addEventListener("mousedown", (e) => {
             this.dragged = true;
         }, false);
 
-        this.canvas.addEventListener("mouseup", (e) => {
+        window.addEventListener("mouseup", (e) => {
             if (this.dragged === true) {
                 this.clicked = true;
                 this.dragged = false;
