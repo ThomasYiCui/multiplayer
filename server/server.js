@@ -299,17 +299,17 @@ app.get('/', (req, res) => {
     </div>
 
     <div class="table-card">
-      <div class="card-title">Active Worlds (Max 50 Players)</div>
+      <div class="card-title">Active Servers (Max 50 Players)</div>
       <table>
         <thead>
           <tr>
-            <th>World Name</th>
+            <th>Server Name</th>
             <th>Players</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody id="worldsTableBody">
-          <tr><td colspan="3">Loading worlds...</td></tr>
+          <tr><td colspan="3">Loading servers...</td></tr>
         </tbody>
       </table>
     </div>
