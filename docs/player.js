@@ -58,49 +58,18 @@ class Player {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // 3. Eyes, Sword & Hands (Rotated towards pointing angle)
+        // 3. Sword & Hands (Rotated towards pointing angle)
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.r + Math.PI);
 
-        // --- EYES ---
-        // Left Eye
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.ellipse(8, -6, 3.5, 3.5, 0, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Left Pupil
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath();
-        ctx.ellipse(9.5, -6, 1.8, 1.8, 0, 0, 2 * Math.PI);
-        ctx.fill();
-
-        // Right Eye
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.ellipse(8, 6, 3.5, 3.5, 0, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Right Pupil
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath();
-        ctx.ellipse(9.5, 6, 1.8, 1.8, 0, 0, 2 * Math.PI);
-        ctx.fill();
-
         // --- SWORD BLADE ---
         ctx.beginPath();
-        ctx.moveTo(60, -6);
-        ctx.lineTo(118, -6);
-        ctx.lineTo(135, 0);   // Sharp pointy tip
-        ctx.lineTo(118, 6);
-        ctx.lineTo(60, 6);
+        ctx.moveTo(54, -6);
+        ctx.lineTo(112, -6);
+        ctx.lineTo(129, 0);   // Sharp pointy tip
+        ctx.lineTo(112, 6);
+        ctx.lineTo(54, 6);
         ctx.closePath();
 
         // Steel blade fill
@@ -112,8 +81,8 @@ class Player {
 
         // Blade center ridge highlight
         ctx.beginPath();
-        ctx.moveTo(62, 0);
-        ctx.lineTo(128, 0);
+        ctx.moveTo(56, 0);
+        ctx.lineTo(122, 0);
         ctx.strokeStyle = '#94a3b8';
         ctx.lineWidth = 1.5;
         ctx.stroke();
@@ -121,7 +90,7 @@ class Player {
         // --- CROSSGUARD ---
         ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(56, -14, 6, 28, 2) : ctx.rect(56, -14, 6, 28);
+        ctx.roundRect ? ctx.roundRect(50, -14, 6, 28, 2) : ctx.rect(50, -14, 6, 28);
         ctx.fill();
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
@@ -129,15 +98,15 @@ class Player {
 
         // --- HILT / GRIP ---
         ctx.fillStyle = '#78350f';
-        ctx.fillRect(36, -3.5, 20, 7);
+        ctx.fillRect(30, -3.5, 20, 7);
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(36, -3.5, 20, 7);
+        ctx.strokeRect(30, -3.5, 20, 7);
 
         // --- POMMEL ---
         ctx.fillStyle = '#f59e0b';
         ctx.beginPath();
-        ctx.ellipse(34, 0, 4.5, 4.5, 0, 0, 2 * Math.PI);
+        ctx.ellipse(28, 0, 4.5, 4.5, 0, 0, 2 * Math.PI);
         ctx.fill();
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
@@ -146,7 +115,7 @@ class Player {
         // --- HANDS (Holding Grip) ---
         ctx.fillStyle = 'rgb(252, 219, 154)';
         ctx.beginPath();
-        ctx.ellipse(46, 0, this.size * 0.35, this.size * 0.35, 0, 0, 2 * Math.PI);
+        ctx.ellipse(40, 0, this.size * 0.35, this.size * 0.35, 0, 0, 2 * Math.PI);
         ctx.fill();
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
