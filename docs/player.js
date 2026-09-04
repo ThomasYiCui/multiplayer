@@ -28,4 +28,37 @@ class Player {
 
     }
 
+
+    update(keys, game) {
+        if (this.isSelf) {
+            let moved = false;
+            if (keys["KeyA"] || keys["ArrowLeft"]) {
+                this.x -= this.speed;
+                moved = true;
+            }
+            if (keys["KeyD"] || keys["ArrowRight"]) {
+                this.x += this.speed;
+                moved = true;
+            }
+            if (keys["KeyW"] || keys["ArrowUp"]) {
+                this.y -= this.speed;
+                moved = true;
+            }
+            if (keys["KeyS"] || keys["ArrowDown"]) {
+                this.y += this.speed;
+                moved = true;
+            }
+
+            if (moved && game && !game.isOffline && game.network) {
+                game.network.sendMove(this.x, this.y);
+            }
+        }
+        if (!this.isSelf) {
+            if (this.targetX !== undefined && this.targetY !== undefined) {
+                this.x += (this.targetX - this.x) * 0.25;
+                this.y += (this.targetY - this.y) * 0.25;
+            }
+        }
+    }
+
 }

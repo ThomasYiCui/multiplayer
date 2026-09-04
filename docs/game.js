@@ -8,8 +8,7 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
         this.selfId = null;
-        this.speed = 5;
-        this.playerSize = 34;
+
         this.keys = { up: false, down: false, left: false, right: false };
         this.isOffline = false;
 
@@ -87,15 +86,11 @@ class Game {
 
         this.network.onRoomJoined = (data) => {
             this.selfId = data.selfId;
-            this.players = {};
+            this.players = data.players;
 
-            // Instantiate Player objects for all players currently in the room
-            for (const id in data.players) {
-                const p = data.players[id];
-                this.players[id] = new Player(p.x, p.y, p.id, p.name, {
-                    isSelf: p.id === this.selfId,
-                    color: p.color
-                });
+            for (const id in this.players) {
+                this.players[id].targetX = this.players[id].x;
+                this.players[id].targetY = this.players[id].y;
             }
 
             document.getElementById('lobbyScreen').style.display = 'none';
@@ -103,12 +98,10 @@ class Game {
             document.getElementById('displayRoomCode').innerText = data.roomCode;
         };
 
-        this.network.onPlayerJoined = (p) => {
-            // Instantiate Player object for newly joined remote player
-            this.players[p.id] = new Player(p.x, p.y, p.id, p.name, {
-                isSelf: false,
-                color: p.color
-            });
+        this.network.onPlayerJoined = (player) => {
+            player.targetX = player.x;
+            player.targetY = player.y;
+            this.players[player.id] = player;
         };
 
         this.network.onPlayerMoved = (data) => {
@@ -129,43 +122,18 @@ class Game {
 
     setupInputs() {
         window.addEventListener('keydown', (e) => {
-            if (['KeyW', 'ArrowUp'].includes(e.code)) this.keys.up = true;
-            if (['KeyS', 'ArrowDown'].includes(e.code)) this.keys.down = true;
-            if (['KeyA', 'ArrowLeft'].includes(e.code)) this.keys.left = true;
-            if (['KeyD', 'ArrowRight'].includes(e.code)) this.keys.right = true;
+            this.keys[e.code] = true;
         });
 
         window.addEventListener('keyup', (e) => {
-            if (['KeyW', 'ArrowUp'].includes(e.code)) this.keys.up = false;
-            if (['KeyS', 'ArrowDown'].includes(e.code)) this.keys.down = false;
-            if (['KeyA', 'ArrowLeft'].includes(e.code)) this.keys.left = false;
-            if (['KeyD', 'ArrowRight'].includes(e.code)) this.keys.right = false;
+            this.keys[e.code] = false;
         });
     }
 
     loop() {
-        if (this.selfId && this.players[this.selfId]) {
-            const me = this.players[this.selfId];
-            let moved = false;
-
-            if (this.keys.left && me.x > 0) { me.x -= me.speed; moved = true; }
-            if (this.keys.right && me.x < this.canvas.width - me.size) { me.x += me.speed; moved = true; }
-            if (this.keys.up && me.y > 0) { me.y -= me.speed; moved = true; }
-            if (this.keys.down && me.y < this.canvas.height - me.size) { me.y += me.speed; moved = true; }
-
-            if (moved && !this.isOffline) {
-                this.network.sendMove(me.x, me.y);
-            }
-        }
-
         for (const id in this.players) {
-            if (id !== this.selfId) {
-                const p = this.players[id];
-                if (p.targetX !== undefined && p.targetY !== undefined) {
-                    p.x += (p.targetX - p.x) * 0.25;
-                    p.y += (p.targetY - p.y) * 0.25;
-                }
-            }
+            const player = this.players[id]
+            player.update(this.keys)
         }
 
         this.ctx.fillStyle = '#0f172a';
@@ -173,10 +141,6 @@ class Game {
         this.drawGrid();
 
         for (const id in this.players) {
-            const p = this.players[id];
-            const isSelf = id === this.selfId;
-            const s = this.playerSize;
-
             this.players[id].display(this.ctx)
         }
 
