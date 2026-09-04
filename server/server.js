@@ -129,22 +129,22 @@ async function saveUserStats(userData) {
 const WORLDS = {
     'world-1': {
         id: 'world-1',
-        name: 'Aethelgard (Forest Realm)',
-        description: 'Lush green forests and ancient ruins.',
+        name: 'Server 1',
+        description: 'Main Adventure Server',
         maxPlayers: 50,
         players: {}
     },
     'world-2': {
         id: 'world-2',
-        name: 'Ignis (Volcanic Realm)',
-        description: 'Dangerous lava rivers and fiery beasts.',
+        name: 'Server 2',
+        description: 'Secondary Adventure Server',
         maxPlayers: 50,
         players: {}
     },
     'world-3': {
         id: 'world-3',
-        name: 'Frostfall (Ice Realm)',
-        description: 'Glacial caverns and freezing blizzards.',
+        name: 'Server 3',
+        description: 'Tertiary Adventure Server',
         maxPlayers: 50,
         players: {}
     }

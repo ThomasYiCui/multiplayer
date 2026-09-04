@@ -143,7 +143,7 @@ class Game {
         if (!grid) return;
 
         if (!worlds || worlds.length === 0) {
-            grid.innerHTML = '<div style="color: #94a3b8; text-align: center; grid-column: 1 / -1;">Connecting to realm servers...</div>';
+            grid.innerHTML = '<div style="color: #94a3b8; text-align: center; grid-column: 1 / -1;">Connecting to servers...</div>';
             return;
         }
 
@@ -170,14 +170,14 @@ class Game {
                             <span class="world-status-tag ${isFull ? 'full' : 'open'}">${isFull ? 'Full' : 'Open'}</span>
                         </div>
                         <button class="enter-world-btn" data-world-id="${w.id}" ${isFull ? 'disabled' : ''}>
-                            ${isFull ? 'World Full' : 'Enter Realm'}
+                            ${isFull ? 'Server Full' : 'Join Server'}
                         </button>
                     </div>
                 </div>
             `;
         }).join('');
 
-        // Attach click listeners to Enter Realm buttons
+        // Attach click listeners to Join Server buttons
         grid.querySelectorAll('.enter-world-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const worldId = btn.getAttribute('data-world-id');
@@ -206,7 +206,7 @@ class Game {
         };
 
         this.updateUserProfileUI(this.currentUser);
-        document.getElementById('hudWorldName').innerText = 'Solo Practice Realm';
+        document.getElementById('hudWorldName').innerText = 'Solo Practice Server';
 
         this.players[this.selfId] = new Player(400, 300, this.selfId, playerName, {
             isSelf: true,
