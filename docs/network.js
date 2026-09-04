@@ -89,9 +89,9 @@ class NetworkManager {
         }
     }
 
-    sendMouse(mouseX, mouseY, clicked, dragged) {
+    sendMouse(mouseX, mouseY, r, clicked, dragged) {
         if (this.socket && this.socket.connected) {
-            this.socket.emit('playerMouse', { mouseX, mouseY, clicked, dragged });
+            this.socket.emit('playerMouse', { mouseX, mouseY, r, clicked, dragged });
         }
     }
 }

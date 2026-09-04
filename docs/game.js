@@ -123,6 +123,9 @@ class Game {
             if (this.players[data.id]) {
                 this.players[data.id].mouseX = data.mouseX;
                 this.players[data.id].mouseY = data.mouseY;
+                if (data.r !== undefined) {
+                    this.players[data.id].r = data.r;
+                }
                 this.players[data.id].clicked = data.clicked;
                 this.players[data.id].dragged = data.dragged;
             }

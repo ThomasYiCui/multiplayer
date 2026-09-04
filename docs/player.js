@@ -78,12 +78,11 @@ class Player {
                     game.network.sendMove(this.x, this.y);
                 }
                 if (mouseMoved || mouseStateChanged) {
-                    game.network.sendMouse(this.mouseX, this.mouseY, this.clicked, this.dragged);
+                    game.network.sendMouse(this.mouseX, this.mouseY, this.r, this.clicked, this.dragged);
                 }
             }
         }
         if (!this.isSelf) {
-            this.r = Math.atan2(this.y - this.mouseY, this.x - this.mouseX);
             if (this.targetX !== undefined && this.targetY !== undefined) {
                 this.x += (this.targetX - this.x) * 0.25;
                 this.y += (this.targetY - this.y) * 0.25;

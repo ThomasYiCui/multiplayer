@@ -35,16 +35,16 @@
         </div>
     </div>
 
-    <div id="gameScreen" class="screen" style="display: none;">
-        <div class="hud">
-            <div>Room Code: <strong id="displayRoomCode" class="room-tag">----</strong> (Share with friends)</div>
+    <div id="gameScreen" class="screen" style="display: none; position: relative;">
+        <div id="roomCodeBadge" style="position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); padding: 8px 16px; border-radius: 8px; border: 1px solid #334155; font-size: 14px; color: #94a3b8; pointer-events: none; z-index: 10;">
+            Room Code: <strong id="displayRoomCode" style="color: #38bdf8; font-size: 16px; letter-spacing: 1px;">----</strong>
         </div>
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <canvas id="gameCanvas"></canvas>
     </div>
 
-    <script src="network.js?v=2"></script>
-    <script src="player.js?v=2"></script>
-    <script src="game.js?v=2"></script>
+    <script src="network.js?v=3"></script>
+    <script src="player.js?v=3"></script>
+    <script src="game.js?v=3"></script>
 </body>
 
 </html>

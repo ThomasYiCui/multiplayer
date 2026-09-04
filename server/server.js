@@ -250,12 +250,13 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 4. MOUSE / CLICK / DRAG UPDATE
+    // 4. MOUSE / CLICK / DRAG / ROTATION UPDATE
     socket.on('playerMouse', (data) => {
         if (currentRoom && rooms[currentRoom]?.players[socket.id]) {
             const p = rooms[currentRoom].players[socket.id];
             p.mouseX = data.mouseX;
             p.mouseY = data.mouseY;
+            p.r = data.r;
             p.clicked = data.clicked;
             p.dragged = data.dragged;
 
@@ -263,6 +264,7 @@ io.on('connection', (socket) => {
                 id: socket.id,
                 mouseX: data.mouseX,
                 mouseY: data.mouseY,
+                r: data.r,
                 clicked: data.clicked,
                 dragged: data.dragged
             });
