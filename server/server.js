@@ -22,14 +22,17 @@ let useMongo = false;
 let UserModel = null;
 
 if (MONGODB_URI) {
-    mongoose.connect(MONGODB_URI)
-        .then(() => {
-            console.log('Connected to MongoDB Atlas');
-            useMongo = true;
-        })
-        .catch(err => {
-            console.warn('MongoDB connection failed, falling back to local file storage:', err.message);
-        });
+    mongoose.connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000
+    })
+    .then(() => {
+        console.log('Connected to MongoDB Atlas');
+        useMongo = true;
+    })
+    .catch(err => {
+        console.warn('MongoDB connection failed, falling back to local file storage:', err.message);
+        useMongo = false;
+    });
 }
 
 const userSchema = new mongoose.Schema({
@@ -63,19 +66,29 @@ function getLocalUsers() {
     }
 }
 function saveLocalUser(user) {
-    const db = getLocalUsers();
-    db[user.username.toLowerCase()] = user;
-    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(db, null, 2));
+    try {
+        const db = getLocalUsers();
+        db[user.username.toLowerCase()] = user;
+        fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(db, null, 2));
+    } catch (e) {
+        console.error('Error saving local user:', e.message);
+    }
 }
 
 // Database helper functions
 async function findUser(username) {
-    if (useMongo) {
-        return await UserModel.findOne({ username: new RegExp(`^${username}$`, 'i') });
-    } else {
-        const db = getLocalUsers();
-        return db[username.toLowerCase()] || null;
+    const clean = username ? username.trim() : '';
+    if (!clean) return null;
+
+    if (useMongo && UserModel && mongoose.connection.readyState === 1) {
+        try {
+            return await UserModel.findOne({ username: new RegExp(`^${clean}$`, 'i') });
+        } catch (err) {
+            console.warn('MongoDB findUser error, fallback to local:', err.message);
+        }
     }
+    const db = getLocalUsers();
+    return db[clean.toLowerCase()] || null;
 }
 
 async function createUser(username, hashedPassword) {
@@ -93,41 +106,48 @@ async function createUser(username, hashedPassword) {
         inventory: []
     };
 
-    if (useMongo) {
-        const doc = new UserModel(newUser);
-        return await doc.save();
-    } else {
-        saveLocalUser(newUser);
-        return newUser;
+    if (useMongo && UserModel && mongoose.connection.readyState === 1) {
+        try {
+            const doc = new UserModel(newUser);
+            return await doc.save();
+        } catch (err) {
+            console.warn('MongoDB createUser error, fallback to local:', err.message);
+        }
     }
+    saveLocalUser(newUser);
+    return newUser;
 }
 
 async function saveUserStats(userData) {
-    if (useMongo && UserModel) {
-        await UserModel.updateOne(
-            { username: userData.username },
-            {
-                $set: {
-                    level: userData.level,
-                    xp: userData.xp,
-                    gold: userData.gold,
-                    hp: userData.hp,
-                    maxHp: userData.maxHp,
-                    attack: userData.attack,
-                    defense: userData.defense,
-                    equipment: userData.equipment,
-                    inventory: userData.inventory
+    if (useMongo && UserModel && mongoose.connection.readyState === 1) {
+        try {
+            await UserModel.updateOne(
+                { username: userData.username },
+                {
+                    $set: {
+                        level: userData.level,
+                        xp: userData.xp,
+                        gold: userData.gold,
+                        hp: userData.hp,
+                        maxHp: userData.maxHp,
+                        attack: userData.attack,
+                        defense: userData.defense,
+                        equipment: userData.equipment,
+                        inventory: userData.inventory
+                    }
                 }
-            }
-        );
-    } else {
-        saveLocalUser(userData);
+            );
+            return;
+        } catch (err) {
+            console.warn('MongoDB saveUserStats error, fallback to local:', err.message);
+        }
     }
+    saveLocalUser(userData);
 }
 
 async function getAllUsers() {
     try {
-        if (useMongo && UserModel) {
+        if (useMongo && UserModel && mongoose.connection.readyState === 1) {
             const list = await UserModel.find({}, { password: 0 }).lean();
             return list.map(u => ({
                 username: u.username,
@@ -434,7 +454,7 @@ io.on('connection', (socket) => {
             console.log(`Registered new player: ${cleanUser}`);
         } catch (err) {
             console.error('Register error:', err);
-            socket.emit('authError', 'Server registration error.');
+            socket.emit('authError', `Registration error: ${err.message || 'Unknown server error'}`);
         }
     });
 
@@ -448,7 +468,11 @@ io.on('connection', (socket) => {
 
             const user = await findUser(cleanUser);
             if (!user) {
-                return socket.emit('authError', 'User not found. Please register first.');
+                return socket.emit('authError', 'User not found. Please click the Register tab to create an account first!');
+            }
+
+            if (!user.password) {
+                return socket.emit('authError', 'Account corrupted. Please register a new username.');
             }
 
             const match = await bcrypt.compare(password, user.password);
@@ -473,7 +497,7 @@ io.on('connection', (socket) => {
             console.log(`Player logged in: ${cleanUser}`);
         } catch (err) {
             console.error('Login error:', err);
-            socket.emit('authError', 'Server login error.');
+            socket.emit('authError', `Login error: ${err.message || 'Unknown server error'}`);
         }
     });
 
