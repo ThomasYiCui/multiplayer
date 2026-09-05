@@ -8,6 +8,7 @@ class Player {
         this.mouseY = 0;
         this.weapon = new Weapon(this, "Iron Sword");
         this.r = 0;
+        this.prevR = 0;
         this.targetX = x;
         this.targetY = y;
         this.id = id;
@@ -37,7 +38,7 @@ class Player {
         const particleCount = 8;
         for (let i = 0; i < particleCount; i++) {
             const spreadAngle = baseAngle + (Math.random() - 0.5) * 1.8;
-            const speed = Math.random() * 160 + 60;
+            const speed = Math.random() * 180 + 80;
             this.particles.push({
                 x: originX,
                 y: originY,
@@ -58,7 +59,7 @@ class Player {
 
         this.hp = Math.max(0, this.hp - amount);
         this.hitCooldown = 0.25; // 0.25s invulnerability
-        this.hitFlash = 0.18;    // Flash bright red
+        this.hitFlash = 0.2;     // Flash bright red
 
         // Add floating damage number
         this.floatingTexts.push({
@@ -74,9 +75,13 @@ class Player {
         if (attacker) {
             pushAngle = Math.atan2(this.y - attacker.y, this.x - attacker.x);
         }
-        const force = 360;
+        const force = 480;
         this.knockbackX = Math.cos(pushAngle) * force;
         this.knockbackY = Math.sin(pushAngle) * force;
+
+        // Keep targetX/targetY ahead so lerping doesn't cancel knockback
+        this.targetX = this.x + Math.cos(pushAngle) * 60;
+        this.targetY = this.y + Math.sin(pushAngle) * 60;
 
         this.spawnHitParticles(contactX, contactY, pushAngle);
 
@@ -86,6 +91,8 @@ class Player {
                 this.hp = this.maxHp;
                 this.x = 250;
                 this.y = 300;
+                this.targetX = 250;
+                this.targetY = 300;
                 this.knockbackX = 0;
                 this.knockbackY = 0;
             }, 1500);
@@ -95,7 +102,7 @@ class Player {
     // Multiplayer Network Damage Handler
     onDamaged(damage, newHp, pushAngle, pushForce, newX, newY, attacker) {
         this.hp = newHp;
-        this.hitFlash = 0.18;
+        this.hitFlash = 0.2;
         this.hitCooldown = 0.25;
 
         // Add floating damage number
@@ -109,21 +116,20 @@ class Player {
 
         // Apply smooth knockback impulse
         const angle = pushAngle !== undefined ? pushAngle : (attacker ? Math.atan2(this.y - attacker.y, this.x - attacker.x) : 0);
-        const force = pushForce || 360;
+        const force = pushForce || 480;
         this.knockbackX = Math.cos(angle) * force;
         this.knockbackY = Math.sin(angle) * force;
 
         this.spawnHitParticles(this.x, this.y, angle);
 
-        if (newX !== undefined && newY !== undefined) {
-            if (this.isSelf) {
-                // Lerp towards authoritative server position if out of sync
+        if (this.isSelf) {
+            if (newX !== undefined && newY !== undefined) {
                 this.x = (this.x + newX) / 2;
                 this.y = (this.y + newY) / 2;
-            } else {
-                this.targetX = newX;
-                this.targetY = newY;
             }
+        } else {
+            this.targetX = newX !== undefined ? newX : this.x + Math.cos(angle) * 60;
+            this.targetY = newY !== undefined ? newY : this.y + Math.sin(angle) * 60;
         }
     }
 
@@ -225,6 +231,10 @@ class Player {
         if (Math.abs(this.knockbackX) > 1 || Math.abs(this.knockbackY) > 1) {
             this.x += this.knockbackX * dt;
             this.y += this.knockbackY * dt;
+            if (!this.isSelf) {
+                this.targetX = this.x;
+                this.targetY = this.y;
+            }
             const friction = Math.pow(0.005, dt);
             this.knockbackX *= friction;
             this.knockbackY *= friction;
@@ -282,6 +292,7 @@ class Player {
             this.clicked = input.clicked;
             this.dragged = input.dragged;
 
+            this.prevR = this.r;
             this.r = Math.atan2(this.y - this.mouseY, this.x - this.mouseX);
 
             // Wall collisions
@@ -304,18 +315,17 @@ class Player {
 
                         // Trigger screen shake on local attacker for tactile hit satisfaction
                         if (game.triggerScreenShake) {
-                            game.triggerScreenShake(4);
+                            game.triggerScreenShake(5);
                         }
 
                         // Calculate physical knockback vector
                         const pushAngle = Math.atan2(target.y - this.y, target.x - this.x);
-                        const pushForce = 380;
+                        const pushForce = 480;
 
-                        if (game.isOffline || target.id === 'training-dummy') {
-                            target.takeDamage(hitResult.damage, this, hitResult.contactX, hitResult.contactY);
-                        } else if (game.network) {
-                            // Immediately spawn local sparks for responsiveness
-                            target.spawnHitParticles(hitResult.contactX, hitResult.contactY, pushAngle);
+                        // Optimistically apply local hit feedback and damage
+                        target.takeDamage(hitResult.damage, this, hitResult.contactX, hitResult.contactY);
+
+                        if (!game.isOffline && game.network) {
                             game.network.sendHit(target.id, hitResult.damage, pushAngle, pushForce);
                         }
                     }
@@ -334,9 +344,12 @@ class Player {
 
         if (!this.isSelf) {
             if (this.targetX !== undefined && this.targetY !== undefined) {
-                const lerpRate = Math.min(1, 15 * dt);
-                this.x += (this.targetX - this.x) * lerpRate;
-                this.y += (this.targetY - this.y) * lerpRate;
+                // If not currently undergoing knockback, smoothly interpolate towards target
+                if (Math.abs(this.knockbackX) <= 1 && Math.abs(this.knockbackY) <= 1) {
+                    const lerpRate = Math.min(1, 15 * dt);
+                    this.x += (this.targetX - this.x) * lerpRate;
+                    this.y += (this.targetY - this.y) * lerpRate;
+                }
             }
         }
     }

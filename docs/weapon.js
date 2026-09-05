@@ -39,42 +39,74 @@ class Weapon {
         };
     }
 
-    // ALWAYS ACTIVE: Physical line-segment vs target circle collision check
+    // ALWAYS ACTIVE: Physical line-segment + Swept Arc collision check
     checkHit(target) {
         if (!target || !this.player || target === this.player) return false;
+
+        const config = this.getConfig();
+        const currentAngle = this.player.r + Math.PI;
+        const prevAngle = (this.player.prevR !== undefined ? this.player.prevR : this.player.r) + Math.PI;
 
         const seg = this.getBladeSegment();
         if (!seg) return false;
 
+        const targetRadius = target.size || 20;
+
+        // 1. Static Line-segment vs Circle Check
         const dx = seg.x2 - seg.x1;
         const dy = seg.y2 - seg.y1;
         const lenSq = dx * dx + dy * dy;
-        if (lenSq === 0) return false;
+        if (lenSq > 0) {
+            let t = ((target.x - seg.x1) * dx + (target.y - seg.y1) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
 
-        // Project target center onto blade line segment (clamped 0 to 1)
-        let t = ((target.x - seg.x1) * dx + (target.y - seg.y1) * dy) / lenSq;
-        t = Math.max(0, Math.min(1, t));
+            const closestX = seg.x1 + t * dx;
+            const closestY = seg.y1 + t * dy;
 
-        // Closest point on the weapon blade to the target
-        const closestX = seg.x1 + t * dx;
-        const closestY = seg.y1 + t * dy;
+            const distX = target.x - closestX;
+            const distY = target.y - closestY;
+            const distance = Math.hypot(distX, distY);
 
-        // Distance from closest point on blade to target center
-        const distX = target.x - closestX;
-        const distY = target.y - closestY;
-        const distance = Math.sqrt(distX * distX + distY * distY);
+            // Generous collision width so blade edge contact is guaranteed
+            const hitThreshold = targetRadius + config.width + 12;
 
-        // Physical collision check
-        const targetRadius = target.size || 20;
-        const hitThreshold = targetRadius + seg.width;
+            if (distance <= hitThreshold) {
+                return {
+                    hit: true,
+                    contactX: closestX,
+                    contactY: closestY,
+                    damage: config.damage
+                };
+            }
+        }
 
-        if (distance <= hitThreshold) {
-            return {
-                hit: true,
-                contactX: closestX,
-                contactY: closestY,
-                damage: this.getConfig().damage
+        // 2. Swept Arc Check (For high-speed mouse swings between frames)
+        const targetDist = Math.hypot(target.x - this.player.x, target.y - this.player.y);
+        if (targetDist >= (config.hilt - targetRadius - 10) && targetDist <= (config.reach + targetRadius + 15)) {
+            const targetAngle = Math.atan2(target.y - this.player.y, target.x - this.player.x);
+
+            const normalizeAngle = (a) => {
+                let diff = a % (Math.PI * 2);
+                if (diff < -Math.PI) diff += Math.PI * 2;
+                if (diff > Math.PI) diff -= Math.PI * 2;
+                return diff;
             };
+
+            const sweepDelta = normalizeAngle(currentAngle - prevAngle);
+            if (Math.abs(sweepDelta) > 0.05 && Math.abs(sweepDelta) < Math.PI * 1.8) {
+                const angleFromPrev = normalizeAngle(targetAngle - prevAngle);
+                const angleFromCurr = normalizeAngle(currentAngle - targetAngle);
+
+                if ((sweepDelta > 0 && angleFromPrev >= -0.15 && angleFromCurr >= -0.15) ||
+                    (sweepDelta < 0 && angleFromPrev <= 0.15 && angleFromCurr <= 0.15)) {
+                    return {
+                        hit: true,
+                        contactX: target.x,
+                        contactY: target.y,
+                        damage: config.damage
+                    };
+                }
+            }
         }
 
         return false;

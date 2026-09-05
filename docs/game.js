@@ -25,7 +25,9 @@ class Game {
         this.currentUser = null;
         this.currentWorldName = '';
 
-        const SERVER_URL = 'https://multiplayer-l8xd.onrender.com';
+        const SERVER_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:3000'
+            : 'https://multiplayer-l8xd.onrender.com';
         this.network = new NetworkManager(SERVER_URL);
         this.network.connect();
 
@@ -310,9 +312,9 @@ class Game {
             if (target) {
                 target.onDamaged(data.damage, data.hp, data.pushAngle, data.pushForce, data.newX, data.newY, attacker);
 
-                // If self was damaged, trigger screen shake and update HUD
+                // If self was damaged, trigger heavy screen shake and update HUD
                 if (data.targetId === this.selfId) {
-                    this.triggerScreenShake(8);
+                    this.triggerScreenShake(12);
                     this.updateUserProfileUI({
                         username: target.playerName,
                         level: target.level,
