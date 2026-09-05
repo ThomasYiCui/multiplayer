@@ -329,6 +329,7 @@ class Game {
         this.network.onPlayerRespawned = (data) => {
             const player = this.players[data.id];
             if (player) {
+                player.isDead = false;
                 player.hp = data.hp;
                 player.x = data.x;
                 player.y = data.y;

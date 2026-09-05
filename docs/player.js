@@ -21,6 +21,7 @@ class Player {
         this.speed = 300; // Pixels per second
         this.size = 20;
         this.color = opt.color || `rgb(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)})`;
+        this.isDead = this.hp <= 0;
 
         // Combat & Feedback
         this.hitCooldown = 0;
@@ -29,37 +30,52 @@ class Player {
         this.particles = [];
     }
 
-    // Spawn sparks/impact particles
-    spawnHitParticles(contactX, contactY, pushAngle) {
+    // Spawn realistic blood splatter particles
+    spawnBloodParticles(contactX, contactY, pushAngle, isDeath = false) {
         const originX = contactX !== undefined ? contactX : this.x;
         const originY = contactY !== undefined ? contactY : this.y;
         const baseAngle = pushAngle !== undefined ? pushAngle : Math.random() * Math.PI * 2;
 
-        const particleCount = 8;
+        const bloodColors = ['#dc2626', '#b91c1c', '#991b1b', '#7f1d1d', '#ef4444'];
+        const particleCount = isDeath ? 28 : 10;
+
         for (let i = 0; i < particleCount; i++) {
-            const spreadAngle = baseAngle + (Math.random() - 0.5) * 1.8;
-            const speed = Math.random() * 180 + 80;
+            const spreadAngle = isDeath
+                ? Math.random() * Math.PI * 2
+                : baseAngle + (Math.random() - 0.5) * 1.6;
+            const speed = isDeath
+                ? Math.random() * 240 + 60
+                : Math.random() * 180 + 70;
+            const size = isDeath
+                ? Math.random() * 4 + 2.5
+                : Math.random() * 3 + 1.5;
+            const life = isDeath
+                ? Math.random() * 0.3 + 0.35
+                : Math.random() * 0.2 + 0.25;
+
             this.particles.push({
                 x: originX,
                 y: originY,
                 vx: Math.cos(spreadAngle) * speed,
                 vy: Math.sin(spreadAngle) * speed,
-                color: Math.random() > 0.3 ? '#fbbf24' : '#ef4444',
-                size: Math.random() * 3 + 2,
+                color: bloodColors[Math.floor(Math.random() * bloodColors.length)],
+                size: size,
                 alpha: 1.0,
-                life: 0.35,
-                maxLife: 0.35
+                life: life,
+                maxLife: life
             });
         }
     }
 
     // Local / Offline Damage
     takeDamage(amount, attacker, contactX, contactY) {
-        if (this.hitCooldown > 0) return;
+        if (this.hp <= 0 || this.isDead || this.hitCooldown > 0) return;
 
         this.hp = Math.max(0, this.hp - amount);
         this.hitCooldown = 0.25; // 0.25s invulnerability
         this.hitFlash = 0.2;     // Flash bright red
+
+        const pushAngle = attacker ? Math.atan2(this.y - attacker.y, this.x - attacker.x) : Math.random() * Math.PI * 2;
 
         // Add floating damage number
         this.floatingTexts.push({
@@ -70,32 +86,41 @@ class Player {
             scale: 1.3
         });
 
-        // Apply physical knockback velocity
-        let pushAngle = Math.random() * Math.PI * 2;
-        if (attacker) {
-            pushAngle = Math.atan2(this.y - attacker.y, this.x - attacker.x);
-        }
-        const force = 480;
-        this.knockbackX = Math.cos(pushAngle) * force;
-        this.knockbackY = Math.sin(pushAngle) * force;
+        if (this.hp <= 0) {
+            this.isDead = true;
+            this.spawnBloodParticles(contactX || this.x, contactY || this.y, pushAngle, true);
 
-        // Keep targetX/targetY ahead so lerping doesn't cancel knockback
-        this.targetX = this.x + Math.cos(pushAngle) * 60;
-        this.targetY = this.y + Math.sin(pushAngle) * 60;
+            // Dummy auto-respawn if defeated in offline mode
+            if (this.id === 'training-dummy') {
+                setTimeout(() => {
+                    this.hp = this.maxHp;
+                    this.isDead = false;
+                    this.x = 250;
+                    this.y = 300;
+                    this.targetX = 250;
+                    this.targetY = 300;
+                    this.knockbackX = 0;
+                    this.knockbackY = 0;
+                }, 1500);
+            } else if (this.id === 'solo-player') {
+                setTimeout(() => {
+                    this.hp = this.maxHp;
+                    this.isDead = false;
+                    this.x = 400;
+                    this.y = 300;
+                    this.knockbackX = 0;
+                    this.knockbackY = 0;
+                }, 1500);
+            }
+        } else {
+            // Apply physical knockback velocity
+            const force = 480;
+            this.knockbackX = Math.cos(pushAngle) * force;
+            this.knockbackY = Math.sin(pushAngle) * force;
+            this.targetX = this.x + Math.cos(pushAngle) * 60;
+            this.targetY = this.y + Math.sin(pushAngle) * 60;
 
-        this.spawnHitParticles(contactX, contactY, pushAngle);
-
-        // Dummy auto-respawn if defeated
-        if (this.hp <= 0 && this.id === 'training-dummy') {
-            setTimeout(() => {
-                this.hp = this.maxHp;
-                this.x = 250;
-                this.y = 300;
-                this.targetX = 250;
-                this.targetY = 300;
-                this.knockbackX = 0;
-                this.knockbackY = 0;
-            }, 1500);
+            this.spawnBloodParticles(contactX, contactY, pushAngle, false);
         }
     }
 
@@ -114,29 +139,35 @@ class Player {
             scale: 1.3
         });
 
-        // Apply smooth knockback impulse
         const angle = pushAngle !== undefined ? pushAngle : (attacker ? Math.atan2(this.y - attacker.y, this.x - attacker.x) : 0);
-        const force = pushForce || 480;
-        this.knockbackX = Math.cos(angle) * force;
-        this.knockbackY = Math.sin(angle) * force;
 
-        this.spawnHitParticles(this.x, this.y, angle);
-
-        if (this.isSelf) {
-            if (newX !== undefined && newY !== undefined) {
-                this.x = (this.x + newX) / 2;
-                this.y = (this.y + newY) / 2;
-            }
+        if (this.hp <= 0) {
+            this.isDead = true;
+            this.spawnBloodParticles(this.x, this.y, angle, true);
         } else {
-            this.targetX = newX !== undefined ? newX : this.x + Math.cos(angle) * 60;
-            this.targetY = newY !== undefined ? newY : this.y + Math.sin(angle) * 60;
+            // Apply smooth knockback impulse
+            const force = pushForce || 480;
+            this.knockbackX = Math.cos(angle) * force;
+            this.knockbackY = Math.sin(angle) * force;
+
+            this.spawnBloodParticles(this.x, this.y, angle, false);
+
+            if (this.isSelf) {
+                if (newX !== undefined && newY !== undefined) {
+                    this.x = (this.x + newX) / 2;
+                    this.y = (this.y + newY) / 2;
+                }
+            } else {
+                this.targetX = newX !== undefined ? newX : this.x + Math.cos(angle) * 60;
+                this.targetY = newY !== undefined ? newY : this.y + Math.sin(angle) * 60;
+            }
         }
     }
 
     display(ctx) {
         ctx.save();
 
-        // 1. Render Hit Particles
+        // 1. Render Blood Particles (always rendered so death splatter animates)
         for (const p of this.particles) {
             ctx.save();
             ctx.fillStyle = p.color;
@@ -147,7 +178,26 @@ class Player {
             ctx.restore();
         }
 
-        // 2. Health Bar & Level Tag above head
+        // 2. Floating Damage Numbers
+        for (const ft of this.floatingTexts) {
+            ctx.save();
+            ctx.font = '900 16px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = `rgba(239, 68, 68, ${ft.alpha})`;
+            ctx.strokeStyle = `rgba(0, 0, 0, ${ft.alpha})`;
+            ctx.lineWidth = 3;
+            ctx.strokeText(ft.text, ft.x, ft.y);
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        }
+
+        // DESPAWN: If player is at 0 HP or dead, hide body, weapon, and health bar completely!
+        if (this.hp <= 0 || this.isDead) {
+            ctx.restore();
+            return;
+        }
+
+        // 3. Health Bar & Level Tag above head
         const barWidth = 44;
         const barHeight = 6;
         const barX = this.x - barWidth / 2;
@@ -179,7 +229,7 @@ class Player {
         ctx.strokeText(tag, this.x, barY - 5);
         ctx.fillText(tag, this.x, barY - 5);
 
-        // 3. Body Circle (Flashes bright red when taking damage)
+        // 4. Body Circle (Flashes bright red when taking damage)
         if (this.hitFlash > 0) {
             ctx.fillStyle = '#ef4444';
             ctx.shadowColor = '#ef4444';
@@ -198,22 +248,9 @@ class Player {
 
         ctx.shadowBlur = 0;
 
-        // 4. Render Equipped Weapon
+        // 5. Render Equipped Weapon
         if (this.weapon) {
             this.weapon.display(ctx);
-        }
-
-        // 5. Floating Damage Numbers
-        for (const ft of this.floatingTexts) {
-            ctx.save();
-            ctx.font = '900 16px "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = `rgba(239, 68, 68, ${ft.alpha})`;
-            ctx.strokeStyle = `rgba(0, 0, 0, ${ft.alpha})`;
-            ctx.lineWidth = 3;
-            ctx.strokeText(ft.text, ft.x, ft.y);
-            ctx.fillText(ft.text, ft.x, ft.y);
-            ctx.restore();
         }
 
         ctx.restore();
@@ -243,11 +280,13 @@ class Player {
             this.knockbackY = 0;
         }
 
-        // Update hit particles
+        // Update blood particles (with deceleration and gravity)
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             p.x += p.vx * dt;
             p.y += p.vy * dt;
+            p.vy += 80 * dt; // Gravity
+            p.vx *= Math.pow(0.15, dt); // Air drag
             p.life -= dt;
             p.alpha = Math.max(0, p.life / p.maxLife);
             if (p.life <= 0) {
@@ -263,6 +302,11 @@ class Player {
             if (ft.alpha <= 0) {
                 this.floatingTexts.splice(i, 1);
             }
+        }
+
+        // If player is dead, disable movement and combat
+        if (this.hp <= 0 || this.isDead) {
+            return;
         }
 
         if (this.isSelf) {
@@ -307,7 +351,7 @@ class Player {
                 for (const id in game.players) {
                     if (id === this.id) continue;
                     const target = game.players[id];
-                    if (target.hitCooldown > 0) continue;
+                    if (target.hp <= 0 || target.isDead || target.hitCooldown > 0) continue;
 
                     const hitResult = this.weapon.checkHit(target);
                     if (hitResult && hitResult.hit) {
