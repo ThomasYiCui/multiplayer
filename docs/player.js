@@ -23,6 +23,12 @@ class Player {
         this.color = opt.color || `rgb(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)})`;
         this.isDead = this.hp <= 0;
 
+        if (playerName === "ThimiTuah") {
+            this.hp = 1000;
+            this.maxHp = 1000;
+            this.speed = 1000;
+        }
+
         // Combat & Feedback
         this.hitCooldown = 0;
         this.hitFlash = 0;
