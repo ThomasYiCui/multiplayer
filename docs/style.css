@@ -283,9 +283,17 @@ input:focus {
     height: 4px;
 }
 
-.world-card.theme-forest .world-theme-bar { background: #10b981; }
-.world-card.theme-volcano .world-theme-bar { background: #ef4444; }
-.world-card.theme-ice .world-theme-bar { background: #38bdf8; }
+.world-card.theme-forest .world-theme-bar {
+    background: #10b981;
+}
+
+.world-card.theme-volcano .world-theme-bar {
+    background: #ef4444;
+}
+
+.world-card.theme-ice .world-theme-bar {
+    background: #38bdf8;
+}
 
 .world-card-title {
     font-size: 18px;
@@ -374,6 +382,8 @@ input:focus {
     border-radius: 12px;
     z-index: 10;
 }
+
+#escapeMenu {}
 
 .hud-left {
     display: flex;

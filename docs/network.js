@@ -16,6 +16,7 @@ class NetworkManager {
         this.onPlayerJoined = null;
         this.onPlayerMoved = null;
         this.onPlayerMouse = null;
+        this.onPlayerUpdate = null;
         this.onPlayerLeft = null;
         this.onError = null;
     }
@@ -65,6 +66,10 @@ class NetworkManager {
             if (this.onPlayerJoined) this.onPlayerJoined(player);
         });
 
+        this.socket.on('playerUpdate', (data) => {
+            if (this.onPlayerUpdate) this.onPlayerUpdate(data);
+        });
+
         this.socket.on('playerMoved', (data) => {
             if (this.onPlayerMoved) this.onPlayerMoved(data);
         });
@@ -90,6 +95,12 @@ class NetworkManager {
             console.error('[Network] Server error:', msg);
             if (this.onError) this.onError(msg);
         });
+    }
+
+    sendUpdate(x, y, r, mouseX, mouseY) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('playerUpdate', { x, y, r, mouseX, mouseY });
+        }
     }
 
     sendHit(targetId, damage, pushAngle, pushForce) {

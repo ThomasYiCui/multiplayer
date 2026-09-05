@@ -282,6 +282,17 @@ class Game {
             });
         };
 
+        this.network.onPlayerUpdate = (data) => {
+            const player = this.players[data.id];
+            if (player) {
+                player.targetX = data.x;
+                player.targetY = data.y;
+                player.targetR = data.r;
+                player.mouseX = data.mouseX;
+                player.mouseY = data.mouseY;
+            }
+        };
+
         this.network.onPlayerMoved = (data) => {
             if (this.players[data.id]) {
                 this.players[data.id].targetX = data.x;
@@ -294,6 +305,7 @@ class Game {
                 this.players[data.id].mouseX = data.mouseX;
                 this.players[data.id].mouseY = data.mouseY;
                 if (data.r !== undefined) {
+                    this.players[data.id].targetR = data.r;
                     this.players[data.id].r = data.r;
                 }
                 this.players[data.id].clicked = data.clicked;

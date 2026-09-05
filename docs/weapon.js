@@ -39,74 +39,43 @@ class Weapon {
         };
     }
 
-    // ALWAYS ACTIVE: Physical line-segment + Swept Arc collision check
+    // ALWAYS ACTIVE: Physical line-segment vs target circle collision check
     checkHit(target) {
         if (!target || !this.player || target === this.player) return false;
+        if (target.hp <= 0 || target.isDead) return false;
 
         const config = this.getConfig();
-        const currentAngle = this.player.r + Math.PI;
-        const prevAngle = (this.player.prevR !== undefined ? this.player.prevR : this.player.r) + Math.PI;
-
         const seg = this.getBladeSegment();
         if (!seg) return false;
 
         const targetRadius = target.size || 20;
 
-        // 1. Static Line-segment vs Circle Check
+        // Physical Line-segment vs Circle Check
         const dx = seg.x2 - seg.x1;
         const dy = seg.y2 - seg.y1;
         const lenSq = dx * dx + dy * dy;
-        if (lenSq > 0) {
-            let t = ((target.x - seg.x1) * dx + (target.y - seg.y1) * dy) / lenSq;
-            t = Math.max(0, Math.min(1, t));
+        if (lenSq === 0) return false;
 
-            const closestX = seg.x1 + t * dx;
-            const closestY = seg.y1 + t * dy;
+        let t = ((target.x - seg.x1) * dx + (target.y - seg.y1) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
 
-            const distX = target.x - closestX;
-            const distY = target.y - closestY;
-            const distance = Math.hypot(distX, distY);
+        const closestX = seg.x1 + t * dx;
+        const closestY = seg.y1 + t * dy;
 
-            // Generous collision width so blade edge contact is guaranteed
-            const hitThreshold = targetRadius + config.width + 12;
+        const distX = target.x - closestX;
+        const distY = target.y - closestY;
+        const distance = Math.hypot(distX, distY);
 
-            if (distance <= hitThreshold) {
-                return {
-                    hit: true,
-                    contactX: closestX,
-                    contactY: closestY,
-                    damage: config.damage
-                };
-            }
-        }
+        // Physical contact threshold (target circle + blade width + generous margin)
+        const hitThreshold = targetRadius + config.width + 10;
 
-        // 2. Swept Arc Check (For high-speed mouse swings between frames)
-        const targetDist = Math.hypot(target.x - this.player.x, target.y - this.player.y);
-        if (targetDist >= (config.hilt - targetRadius - 10) && targetDist <= (config.reach + targetRadius + 15)) {
-            const targetAngle = Math.atan2(target.y - this.player.y, target.x - this.player.x);
-
-            const normalizeAngle = (a) => {
-                let diff = a % (Math.PI * 2);
-                if (diff < -Math.PI) diff += Math.PI * 2;
-                if (diff > Math.PI) diff -= Math.PI * 2;
-                return diff;
+        if (distance <= hitThreshold) {
+            return {
+                hit: true,
+                contactX: closestX,
+                contactY: closestY,
+                damage: config.damage
             };
-
-            const sweepDelta = normalizeAngle(currentAngle - prevAngle);
-            if (Math.abs(sweepDelta) > 0.05 && Math.abs(sweepDelta) < Math.PI * 1.8) {
-                const angleFromPrev = normalizeAngle(targetAngle - prevAngle);
-                const angleFromCurr = normalizeAngle(currentAngle - targetAngle);
-
-                if ((sweepDelta > 0 && angleFromPrev >= -0.15 && angleFromCurr >= -0.15) ||
-                    (sweepDelta < 0 && angleFromPrev <= 0.15 && angleFromCurr <= 0.15)) {
-                    return {
-                        hit: true,
-                        contactX: target.x,
-                        contactY: target.y,
-                        damage: config.damage
-                    };
-                }
-            }
         }
 
         return false;

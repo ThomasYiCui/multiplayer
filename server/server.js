@@ -593,7 +593,28 @@ io.on('connection', (socket) => {
         socket.emit('worldList', getWorldsList());
     });
 
-    // MOVEMENT
+    // UNIFIED PLAYER UPDATE (Position + Rotation + State)
+    socket.on('playerUpdate', (data) => {
+        if (currentWorld && WORLDS[currentWorld]?.players[socket.id]) {
+            const p = WORLDS[currentWorld].players[socket.id];
+            p.x = data.x;
+            p.y = data.y;
+            p.r = data.r;
+            p.mouseX = data.mouseX;
+            p.mouseY = data.mouseY;
+
+            socket.to(currentWorld).emit('playerUpdate', {
+                id: socket.id,
+                x: data.x,
+                y: data.y,
+                r: data.r,
+                mouseX: data.mouseX,
+                mouseY: data.mouseY
+            });
+        }
+    });
+
+    // MOVEMENT (Fallback)
     socket.on('playerMove', (data) => {
         if (currentWorld && WORLDS[currentWorld]?.players[socket.id]) {
             const p = WORLDS[currentWorld].players[socket.id];
@@ -604,7 +625,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // MOUSE & ROTATION
+    // MOUSE & ROTATION (Fallback)
     socket.on('playerMouse', (data) => {
         if (currentWorld && WORLDS[currentWorld]?.players[socket.id]) {
             const p = WORLDS[currentWorld].players[socket.id];

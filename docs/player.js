@@ -377,23 +377,43 @@ class Player {
             }
 
             if (game && !game.isOffline && game.network) {
-                if (moved || Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2) {
-                    game.network.sendMove(this.x, this.y);
+                const now = performance.now();
+                if (!this.lastSyncTime) this.lastSyncTime = 0;
+                if (this.lastSentX === undefined) {
+                    this.lastSentX = this.x;
+                    this.lastSentY = this.y;
+                    this.lastSentR = this.r;
                 }
-                if (mouseMoved || mouseStateChanged) {
-                    game.network.sendMouse(this.mouseX, this.mouseY, this.r, this.clicked, this.dragged);
+
+                const distChanged = Math.hypot(this.x - this.lastSentX, this.y - this.lastSentY) > 0.5;
+                const rotChanged = Math.abs(this.r - this.lastSentR) > 0.01;
+
+                // Sync at 30Hz or immediately on significant movement
+                if ((distChanged || rotChanged || Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2) && (now - this.lastSyncTime > 30)) {
+                    this.lastSyncTime = now;
+                    this.lastSentX = this.x;
+                    this.lastSentY = this.y;
+                    this.lastSentR = this.r;
+                    game.network.sendUpdate(this.x, this.y, this.r, this.mouseX, this.mouseY);
                 }
             }
         }
 
         if (!this.isSelf) {
             if (this.targetX !== undefined && this.targetY !== undefined) {
-                // If not currently undergoing knockback, smoothly interpolate towards target
+                // Smooth position interpolation
                 if (Math.abs(this.knockbackX) <= 1 && Math.abs(this.knockbackY) <= 1) {
-                    const lerpRate = Math.min(1, 15 * dt);
+                    const lerpRate = Math.min(1, 20 * dt);
                     this.x += (this.targetX - this.x) * lerpRate;
                     this.y += (this.targetY - this.y) * lerpRate;
                 }
+            }
+            if (this.targetR !== undefined) {
+                // Shortest angular distance interpolation for smooth sword rotation
+                let diff = (this.targetR - this.r) % (Math.PI * 2);
+                if (diff < -Math.PI) diff += Math.PI * 2;
+                if (diff > Math.PI) diff -= Math.PI * 2;
+                this.r += diff * Math.min(1, 25 * dt);
             }
         }
     }
