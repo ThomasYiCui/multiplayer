@@ -503,13 +503,14 @@ io.on('connection', (socket) => {
                 return socket.emit('authError', 'Incorrect password.');
             }
 
+            const isThimi = user.username === 'ThimiTuah';
             currentUser = {
                 username: user.username,
                 level: user.level || 1,
                 xp: user.xp || 0,
                 gold: user.gold || 0,
-                hp: user.hp || 100,
-                maxHp: user.maxHp || 100,
+                hp: isThimi ? 1000 : (user.hp || 100),
+                maxHp: isThimi ? 1000 : (user.maxHp || 100),
                 attack: user.attack || 10,
                 defense: user.defense || 5,
                 equipment: user.equipment || {},

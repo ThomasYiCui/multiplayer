@@ -151,8 +151,12 @@ class Game {
         document.getElementById('hudPlayerLevel').innerText = `Lv. ${user.level || 1}`;
         document.getElementById('hudGoldText').innerText = `${user.gold || 0} Gold`;
 
-        const maxHp = user.maxHp || 100;
-        const hp = user.hp !== undefined ? user.hp : 100;
+        let maxHp = user.maxHp || 100;
+        let hp = user.hp !== undefined ? user.hp : 100;
+        if (user.username === 'ThimiTuah') {
+            maxHp = 1000;
+            if (hp < 1000 && (user.hp === 100 || user.hp === undefined)) hp = 1000;
+        }
         const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
         document.getElementById('hudHpFill').style.width = `${hpRatio * 100}%`;
         document.getElementById('hudHpText').innerText = `${hp} / ${maxHp}`;
