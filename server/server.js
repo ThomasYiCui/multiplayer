@@ -657,12 +657,8 @@ io.on('connection', (socket) => {
             const actualDamage = Math.max(1, damage || 15);
             target.hp = Math.max(0, target.hp - actualDamage);
 
-            const force = pushForce || 360;
+            const force = pushForce || 480;
             const angle = pushAngle !== undefined ? pushAngle : Math.atan2(target.y - attacker.y, target.x - attacker.x);
-
-            // Server-side estimate of knockback position
-            target.x += Math.cos(angle) * (force * 0.12);
-            target.y += Math.sin(angle) * (force * 0.12);
 
             // Broadcast damage & knockback vector to all players in the world
             io.to(currentWorld).emit('playerDamaged', {
@@ -672,9 +668,7 @@ io.on('connection', (socket) => {
                 hp: target.hp,
                 maxHp: target.maxHp,
                 pushAngle: angle,
-                pushForce: force,
-                newX: target.x,
-                newY: target.y
+                pushForce: force
             });
 
             // If target died, respawn after 2 seconds

@@ -15,6 +15,7 @@ class Game {
         this.clicked = false;
         this.dragged = false;
         this.isOffline = false;
+        this.showHitboxes = true;
 
         this.camera = {
             x: 0,
@@ -111,6 +112,17 @@ class Game {
         document.getElementById('leaveWorldBtn').addEventListener('click', () => {
             this.leaveWorld();
         });
+
+        // Hitbox Debug Toggle
+        const toggleHitboxBtn = document.getElementById('toggleHitboxBtn');
+        if (toggleHitboxBtn) {
+            toggleHitboxBtn.addEventListener('click', () => {
+                this.showHitboxes = !this.showHitboxes;
+                toggleHitboxBtn.innerText = this.showHitboxes ? 'Hitboxes: ON [H]' : 'Hitboxes: OFF [H]';
+                toggleHitboxBtn.style.background = this.showHitboxes ? '#065f46' : '#334155';
+                toggleHitboxBtn.style.borderColor = this.showHitboxes ? '#059669' : '#475569';
+            });
+        }
     }
 
     showAuthError(msg) {
@@ -374,6 +386,17 @@ class Game {
     setupInputs() {
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
+
+            // Toggle hitboxes on 'H' key
+            if (e.code === 'KeyH') {
+                this.showHitboxes = !this.showHitboxes;
+                const toggleHitboxBtn = document.getElementById('toggleHitboxBtn');
+                if (toggleHitboxBtn) {
+                    toggleHitboxBtn.innerText = this.showHitboxes ? 'Hitboxes: ON [H]' : 'Hitboxes: OFF [H]';
+                    toggleHitboxBtn.style.background = this.showHitboxes ? '#065f46' : '#334155';
+                    toggleHitboxBtn.style.borderColor = this.showHitboxes ? '#059669' : '#475569';
+                }
+            }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -466,7 +489,7 @@ class Game {
 
         // Render Players
         for (const id in this.players) {
-            this.players[id].display(this.ctx);
+            this.players[id].display(this.ctx, this);
         }
 
         this.ctx.restore();

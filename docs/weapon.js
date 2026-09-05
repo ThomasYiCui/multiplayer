@@ -38,6 +38,44 @@ class Weapon {
             width: config.width
         };
     }
+    drawHitbox(ctx) {
+        const seg = this.getBladeSegment();
+        if (!seg) return;
+
+        const config = this.getConfig();
+        const hitRadius = config.width + 10;
+
+        ctx.save();
+        // 1. Draw collision capsule around blade
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+        ctx.lineWidth = hitRadius * 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(seg.x1, seg.y1);
+        ctx.lineTo(seg.x2, seg.y2);
+        ctx.stroke();
+
+        // 2. Draw physical line segment core
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(seg.x1, seg.y1);
+        ctx.lineTo(seg.x2, seg.y2);
+        ctx.stroke();
+
+        // 3. Draw tip and hilt points
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(seg.x2, seg.y2, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(seg.x1, seg.y1, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
 
     // ALWAYS ACTIVE: Physical line-segment vs target circle collision check
     checkHit(target) {
