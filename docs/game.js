@@ -6,7 +6,10 @@ class Game {
 
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
+        this.enemies = [];
         this.walls = [];
+        this.particles = [];
+        this.damageCounters = [];
         this.selfId = null;
 
         this.keys = { up: false, down: false, left: false, right: false };
@@ -16,6 +19,7 @@ class Game {
         this.dragged = false;
         this.isOffline = false;
         this.showHitboxes = true;
+        this.isEscapeMenuOpen = false;
 
         this.camera = {
             x: 0,
@@ -108,20 +112,70 @@ class Game {
             this.showScreen('authScreen');
         });
 
-        // Leave Realm
-        document.getElementById('leaveWorldBtn').addEventListener('click', () => {
-            this.leaveWorld();
+        // Leave Realm / Server buttons
+        document.querySelectorAll('#leaveWorldBtn, .leave-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.leaveWorld();
+            });
         });
 
-        // Hitbox Debug Toggle
+        // Escape Menu: Resume Game
+        const resumeBtn = document.getElementById('escapeResumeBtn');
+        if (resumeBtn) {
+            resumeBtn.addEventListener('click', () => {
+                this.toggleEscapeMenu(false);
+            });
+        }
+
+        // Hitbox Toggle Buttons (HUD & Escape Menu)
         const toggleHitboxBtn = document.getElementById('toggleHitboxBtn');
         if (toggleHitboxBtn) {
             toggleHitboxBtn.addEventListener('click', () => {
-                this.showHitboxes = !this.showHitboxes;
-                toggleHitboxBtn.innerText = this.showHitboxes ? 'Hitboxes: ON [H]' : 'Hitboxes: OFF [H]';
-                toggleHitboxBtn.style.background = this.showHitboxes ? '#065f46' : '#334155';
-                toggleHitboxBtn.style.borderColor = this.showHitboxes ? '#059669' : '#475569';
+                this.toggleHitboxes();
             });
+        }
+
+        const escapeHitboxBtn = document.getElementById('escapeHitboxBtn');
+        if (escapeHitboxBtn) {
+            escapeHitboxBtn.addEventListener('click', () => {
+                this.toggleHitboxes();
+            });
+        }
+    }
+
+    toggleHitboxes() {
+        this.showHitboxes = !this.showHitboxes;
+        const text = this.showHitboxes ? 'Hitboxes: ON [H]' : 'Hitboxes: OFF [H]';
+        const bg = this.showHitboxes ? '#065f46' : '#334155';
+        const border = this.showHitboxes ? '#059669' : '#475569';
+
+        const hudBtn = document.getElementById('toggleHitboxBtn');
+        if (hudBtn) {
+            hudBtn.innerText = text;
+            hudBtn.style.background = bg;
+            hudBtn.style.borderColor = border;
+        }
+
+        const escapeBtn = document.getElementById('escapeHitboxBtn');
+        if (escapeBtn) {
+            escapeBtn.innerText = text;
+            escapeBtn.style.background = bg;
+            escapeBtn.style.borderColor = border;
+        }
+    }
+
+    toggleEscapeMenu(forceState) {
+        this.isEscapeMenuOpen = forceState !== undefined ? forceState : !this.isEscapeMenuOpen;
+        const menu = document.getElementById('escapeMenu');
+        if (menu) {
+            menu.style.display = this.isEscapeMenuOpen ? 'flex' : 'none';
+        }
+
+        if (this.isEscapeMenuOpen) {
+            const serverNameElem = document.getElementById('escapeServerName');
+            if (serverNameElem) {
+                serverNameElem.innerText = this.currentWorldName || (this.isOffline ? 'Solo Practice Server' : 'Multiplayer Realm');
+            }
         }
     }
 
@@ -144,22 +198,54 @@ class Game {
 
     updateUserProfileUI(user) {
         if (!user) return;
-        document.getElementById('headerUsername').innerText = user.username;
-        document.getElementById('headerUserLevel').innerText = `Level ${user.level || 1}`;
-        document.getElementById('headerUserGold').innerText = `${user.gold || 0} Gold`;
 
-        document.getElementById('hudPlayerLevel').innerText = `Lv. ${user.level || 1}`;
-        document.getElementById('hudGoldText').innerText = `${user.gold || 0} Gold`;
+        const nameElem = document.getElementById('hudPlayerName');
+        if (nameElem) nameElem.innerText = user.playerName || user.username || 'Adventurer';
 
-        let maxHp = user.maxHp || 100;
-        let hp = user.hp !== undefined ? user.hp : 100;
-        if (user.username === 'ThimiTuah') {
-            maxHp = 1000;
-            if (hp < 1000 && (user.hp === 100 || user.hp === undefined)) hp = 1000;
-        }
+        const lvlElem = document.getElementById('hudPlayerLevel');
+        if (lvlElem) lvlElem.innerText = `Lv. ${user.level || 1}`;
+
+        const goldElem = document.getElementById('hudGoldText');
+        if (goldElem) goldElem.innerText = `${user.gold || 0} Gold`;
+
+        // 1. Health Bar
+        const maxHp = user.maxHp || 100;
+        const hp = user.hp !== undefined ? Math.max(0, user.hp) : 100;
         const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
-        document.getElementById('hudHpFill').style.width = `${hpRatio * 100}%`;
-        document.getElementById('hudHpText').innerText = `${hp} / ${maxHp}`;
+        const hpFill = document.getElementById('hudHpFill');
+        if (hpFill) {
+            hpFill.style.width = `${hpRatio * 100}%`;
+            hpFill.style.background = hpRatio > 0.5 ? '#10b981' : hpRatio > 0.25 ? '#f59e0b' : '#ef4444';
+        }
+        const hpText = document.getElementById('hudHpText');
+        if (hpText) hpText.innerText = `${Math.round(hp)} / ${maxHp}`;
+
+        // 2. Stamina Bar
+        const maxStamina = user.maxStamina || 100;
+        const stamina = user.stamina !== undefined ? Math.max(0, user.stamina) : 100;
+        const staRatio = Math.max(0, Math.min(1, stamina / maxStamina));
+        const staminaFill = document.getElementById('hudStaminaFill');
+        if (staminaFill) staminaFill.style.width = `${staRatio * 100}%`;
+        const staminaText = document.getElementById('hudStaminaText');
+        if (staminaText) staminaText.innerText = `${Math.round(stamina)} / ${maxStamina}`;
+
+        // 3. EXP Bar
+        const level = user.level || 1;
+        const maxXp = user.maxXp || (level * 100);
+        const xp = user.xp || 0;
+        const xpRatio = Math.max(0, Math.min(1, xp / maxXp));
+        const expFill = document.getElementById('hudExpFill');
+        if (expFill) expFill.style.width = `${xpRatio * 100}%`;
+        const expText = document.getElementById('hudExpText');
+        if (expText) expText.innerText = `${xp} / ${maxXp} XP`;
+
+        // Header User Info in World Select
+        const headerName = document.getElementById('headerUsername');
+        if (headerName) headerName.innerText = user.username || user.playerName || 'Adventurer';
+        const headerLevel = document.getElementById('headerUserLevel');
+        if (headerLevel) headerLevel.innerText = `Level ${user.level || 1}`;
+        const headerGold = document.getElementById('headerUserGold');
+        if (headerGold) headerGold.innerText = `${user.gold || 0} Gold`;
     }
 
     renderWorldsGrid(worlds) {
@@ -210,15 +296,22 @@ class Game {
     }
 
     leaveWorld() {
+        this.toggleEscapeMenu(false);
         this.isOffline = false;
         this.players = {};
+        this.enemies = [];
+        this.particles = [];
+        this.damageCounters = [];
         this.selfId = null;
+        this.currentWorldName = '';
         this.network.leaveWorld();
         this.showScreen('worldScreen');
     }
 
     startOfflineMode(playerName) {
+        this.toggleEscapeMenu(false);
         this.isOffline = true;
+        this.currentWorldName = 'Solo Practice Server';
         this.selfId = 'solo-player';
         this.currentUser = {
             username: playerName,
@@ -228,16 +321,18 @@ class Game {
             gold: 50
         };
 
-        this.updateUserProfileUI(this.currentUser);
-        document.getElementById('hudWorldName').innerText = 'Solo Practice Server';
+        const serverNameElem = document.getElementById('escapeServerName');
+        if (serverNameElem) serverNameElem.innerText = 'Solo Practice Server';
 
         this.players[this.selfId] = new Player(400, 300, this.selfId, playerName, {
             isSelf: true,
             level: 1,
             hp: 100,
-            maxHp: 100
+            maxHp: 100,
+            gold: 50
         });
 
+        // Offline Training Dummy
         this.players['training-dummy'] = new Player(250, 300, 'training-dummy', "Training Dummy", {
             isSelf: false,
             level: 1,
@@ -245,7 +340,65 @@ class Game {
             maxHp: 80
         });
 
+        // Spawn themed enemy groups across different sectors of the map
+        this.enemies = [];
+
+        // 1. Slime Nest (East forest clearing - 4 Bouncing Slimes)
+        this.spawnEnemyGroup("Slime", 4, 720, 180, 85);
+
+        // 2. Goblin Camp (South-East ruins - 3 Goblins with Cleavers)
+        this.spawnEnemyGroup("Goblin", 3, 760, 580, 75);
+
+        // 3. Skeleton Crypt (South-West dungeon - 3 Skeleton Warriors with Bone Swords)
+        this.spawnEnemyGroup("Skeleton", 3, -160, 520, 80);
+
+        // 4. Orc Outpost (North-West mountain - 1 Orc Berserker + 2 Goblins)
+        this.spawnEnemyGroup("Orc", 1, -220, -120, 0);
+        this.spawnEnemyGroup("Goblin", 2, -180, -90, 60);
+
+        this.updateUserProfileUI(this.players[this.selfId]);
         this.showScreen('gameScreen');
+    }
+
+    spawnEnemyGroup(type, count, centerX, centerY, spread = 70) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * spread;
+            const x = centerX + Math.cos(angle) * dist;
+            const y = centerY + Math.sin(angle) * dist;
+            this.enemies.push(Enemy.create(type, x, y));
+        }
+    }
+
+    triggerScreenShake(amount = 5) {
+        this.screenShake = Math.max(this.screenShake || 0, amount);
+    }
+
+    spawnBlood(x, y, color = '#dc2626', count = 10, angle = null, isDeath = false) {
+        if (typeof Particle === 'undefined') return;
+        const baseAngle = angle !== null && angle !== undefined ? angle : Math.random() * Math.PI * 2;
+        for (let i = 0; i < count; i++) {
+            const spreadAngle = isDeath ? Math.random() * Math.PI * 2 : baseAngle + (Math.random() - 0.5) * 1.6;
+            const speed = isDeath ? Math.random() * 4.5 + 1.5 : Math.random() * 3.5 + 1.5;
+            const life = isDeath ? Math.random() * 0.35 + 0.3 : Math.random() * 0.22 + 0.2;
+            const size = isDeath ? Math.random() * 4 + 2.5 : Math.random() * 3 + 1.5;
+
+            this.particles.push(new Particle(x, y, life, {
+                vX: Math.cos(spreadAngle) * speed,
+                vY: Math.sin(spreadAngle) * speed,
+                drag: 0.94,
+                gravity: 0.12,
+                color: color,
+                size: size,
+                transparencyStart: 1.0,
+                transparencyEnd: 0.0
+            }));
+        }
+    }
+
+    spawnDamageCounter(x, y, amount, color = '#ef4444') {
+        if (typeof DamageCounter === 'undefined') return;
+        this.damageCounters.push(new DamageCounter(x, y, amount, { color }));
     }
 
     setupNetwork() {
@@ -269,8 +422,8 @@ class Game {
             this.currentWorldName = data.worldName;
             this.players = {};
 
-            document.getElementById('hudWorldName').innerText = data.worldName;
-            this.updateUserProfileUI(data.user);
+            const serverNameElem = document.getElementById('escapeServerName');
+            if (serverNameElem) serverNameElem.innerText = data.worldName;
 
             for (const id in data.players) {
                 const p = data.players[id];
@@ -284,7 +437,101 @@ class Game {
                 });
             }
 
+            // Instantiate Server-Synchronized Enemies
+            this.enemies = [];
+            if (data.enemies && Array.isArray(data.enemies)) {
+                for (const e of data.enemies) {
+                    if (e.isDead) continue;
+                    const enemy = Enemy.create(e.type, e.x, e.y, { id: e.id, level: e.level });
+                    enemy.hp = e.hp;
+                    enemy.maxHp = e.maxHp;
+                    if (enemy.addSnapshot) {
+                        enemy.addSnapshot({ x: e.x, y: e.y, r: 0, hp: e.hp, maxHp: e.maxHp, time: Date.now() });
+                    }
+                    this.enemies.push(enemy);
+                }
+            }
+
+            if (this.players[this.selfId]) {
+                this.updateUserProfileUI(this.players[this.selfId]);
+            }
             this.showScreen('gameScreen');
+        };
+
+        this.network.onEnemiesUpdate = (data) => {
+            if (!data || !data.enemies || this.isOffline) return;
+            const now = data.time || Date.now();
+            for (const snap of data.enemies) {
+                let enemy = this.enemies.find(e => e.id === snap.id);
+                if (!enemy && !snap.isDead) {
+                    enemy = Enemy.create(snap.type, snap.x, snap.y, { id: snap.id });
+                    this.enemies.push(enemy);
+                }
+                if (enemy) {
+                    if (enemy.addSnapshot) {
+                        enemy.addSnapshot({
+                            x: snap.x,
+                            y: snap.y,
+                            r: snap.r,
+                            hp: snap.hp,
+                            maxHp: snap.maxHp,
+                            isAttacking: snap.isAttacking,
+                            isDead: snap.isDead,
+                            time: now
+                        });
+                    } else {
+                        enemy.x = snap.x;
+                        enemy.y = snap.y;
+                        enemy.r = snap.r;
+                        enemy.hp = snap.hp;
+                        enemy.isDead = snap.isDead;
+                    }
+                }
+            }
+        };
+
+        this.network.onEnemyDamaged = (data) => {
+            const enemy = this.enemies.find(e => e.id === data.enemyId);
+            if (enemy) {
+                if (enemy.onServerDamaged) {
+                    enemy.onServerDamaged(data.damage, data.hp, data.pushAngle, data.pushForce, data.attackerId, this);
+                } else {
+                    enemy.hp = data.hp;
+                    this.spawnDamageCounter(enemy.x, enemy.y - enemy.size - 18, data.damage, '#ef4444');
+                }
+            }
+        };
+
+        this.network.onEnemyDied = (data) => {
+            const idx = this.enemies.findIndex(e => e.id === data.enemyId);
+            if (idx !== -1) {
+                const enemy = this.enemies[idx];
+                enemy.isDead = true;
+                this.spawnBlood(enemy.x, enemy.y, enemy.bloodColor || '#dc2626', 26, Math.random() * Math.PI * 2, true);
+                this.enemies.splice(idx, 1);
+            }
+        };
+
+        this.network.onEnemySpawned = (data) => {
+            let existing = this.enemies.find(e => e.id === data.id);
+            if (existing) {
+                existing.hp = data.hp;
+                existing.maxHp = data.maxHp;
+                existing.x = data.x;
+                existing.y = data.y;
+                existing.isDead = false;
+                if (existing.addSnapshot) {
+                    existing.addSnapshot({ x: data.x, y: data.y, r: 0, hp: data.hp, maxHp: data.maxHp, time: Date.now() });
+                }
+            } else {
+                const newEnemy = Enemy.create(data.type, data.x, data.y, { id: data.id, level: data.level });
+                newEnemy.hp = data.hp;
+                newEnemy.maxHp = data.maxHp;
+                if (newEnemy.addSnapshot) {
+                    newEnemy.addSnapshot({ x: data.x, y: data.y, r: 0, hp: data.hp, maxHp: data.maxHp, time: Date.now() });
+                }
+                this.enemies.push(newEnemy);
+            }
         };
 
         this.network.onPlayerJoined = (p) => {
@@ -298,34 +545,61 @@ class Game {
             });
         };
 
+        this.network.onPingUpdate = (ping) => {
+            const pingElem = document.getElementById('hudPing');
+            if (pingElem) {
+                pingElem.innerText = `${ping} ms`;
+                if (ping < 65) {
+                    pingElem.style.color = '#34d399';
+                } else if (ping < 130) {
+                    pingElem.style.color = '#fbbf24';
+                } else {
+                    pingElem.style.color = '#f87171';
+                }
+            }
+        };
+
         this.network.onPlayerUpdate = (data) => {
             const player = this.players[data.id];
             if (player) {
-                player.targetX = data.x;
-                player.targetY = data.y;
-                player.targetR = data.r;
-                player.mouseX = data.mouseX;
-                player.mouseY = data.mouseY;
+                if (player.addSnapshot) {
+                    player.addSnapshot(data);
+                } else {
+                    player.targetX = data.x;
+                    player.targetY = data.y;
+                    player.targetR = data.r;
+                    player.mouseX = data.mouseX;
+                    player.mouseY = data.mouseY;
+                }
             }
         };
 
         this.network.onPlayerMoved = (data) => {
-            if (this.players[data.id]) {
-                this.players[data.id].targetX = data.x;
-                this.players[data.id].targetY = data.y;
+            const player = this.players[data.id];
+            if (player) {
+                if (player.addSnapshot) {
+                    player.addSnapshot({ x: data.x, y: data.y, time: data.time });
+                } else {
+                    player.targetX = data.x;
+                    player.targetY = data.y;
+                }
             }
         };
 
         this.network.onPlayerMouse = (data) => {
-            if (this.players[data.id]) {
-                this.players[data.id].mouseX = data.mouseX;
-                this.players[data.id].mouseY = data.mouseY;
+            const player = this.players[data.id];
+            if (player) {
+                player.mouseX = data.mouseX;
+                player.mouseY = data.mouseY;
                 if (data.r !== undefined) {
-                    this.players[data.id].targetR = data.r;
-                    this.players[data.id].r = data.r;
+                    player.targetR = data.r;
+                    player.r = data.r;
                 }
-                this.players[data.id].clicked = data.clicked;
-                this.players[data.id].dragged = data.dragged;
+                player.clicked = data.clicked;
+                player.dragged = data.dragged;
+                if (player.addSnapshot && player.x !== undefined) {
+                    player.addSnapshot({ x: player.x, y: player.y, r: data.r, mouseX: data.mouseX, mouseY: data.mouseY, time: data.time });
+                }
             }
         };
 
@@ -391,15 +665,17 @@ class Game {
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
 
+            // Toggle escape menu on 'Escape' key
+            if (e.code === 'Escape') {
+                const gameScreen = document.getElementById('gameScreen');
+                if (gameScreen && gameScreen.style.display !== 'none') {
+                    this.toggleEscapeMenu();
+                }
+            }
+
             // Toggle hitboxes on 'H' key
             if (e.code === 'KeyH') {
-                this.showHitboxes = !this.showHitboxes;
-                const toggleHitboxBtn = document.getElementById('toggleHitboxBtn');
-                if (toggleHitboxBtn) {
-                    toggleHitboxBtn.innerText = this.showHitboxes ? 'Hitboxes: ON [H]' : 'Hitboxes: OFF [H]';
-                    toggleHitboxBtn.style.background = this.showHitboxes ? '#065f46' : '#334155';
-                    toggleHitboxBtn.style.borderColor = this.showHitboxes ? '#059669' : '#475569';
-                }
+                this.toggleHitboxes();
             }
         });
 
@@ -439,6 +715,7 @@ class Game {
         // Smooth camera follow target (self player)
         const selfPlayer = this.players[this.selfId];
         if (selfPlayer) {
+            this.updateUserProfileUI(selfPlayer);
             const targetCamX = selfPlayer.x - this.canvas.width / 2;
             const targetCamY = selfPlayer.y - this.canvas.height / 2;
             const lerpRate = Math.min(1, 10 * dt);
@@ -463,6 +740,39 @@ class Game {
                         y: worldMouseY,
                     }
                 }, this);
+        }
+
+        // Update Active Enemies
+        if (this.enemies && Array.isArray(this.enemies)) {
+            for (let i = this.enemies.length - 1; i >= 0; i--) {
+                const enemy = this.enemies[i];
+                enemy.update(dt, this);
+                if (enemy.isDead) {
+                    this.enemies.splice(i, 1);
+                }
+            }
+        }
+
+        // Update Particles
+        if (this.particles && Array.isArray(this.particles)) {
+            for (let i = this.particles.length - 1; i >= 0; i--) {
+                const p = this.particles[i];
+                p.update(dt);
+                if (p.isDead()) {
+                    this.particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Update Damage Counters
+        if (this.damageCounters && Array.isArray(this.damageCounters)) {
+            for (let i = this.damageCounters.length - 1; i >= 0; i--) {
+                const dc = this.damageCounters[i];
+                dc.update(dt);
+                if (dc.isDead()) {
+                    this.damageCounters.splice(i, 1);
+                }
+            }
         }
 
         this.clicked = false;
@@ -491,9 +801,30 @@ class Game {
             wall.display(this.ctx);
         }
 
+        // Render Particles (Ground level & blood splatters)
+        if (this.particles && Array.isArray(this.particles)) {
+            for (const p of this.particles) {
+                p.display(this.ctx);
+            }
+        }
+
+        // Render Enemies
+        if (this.enemies && Array.isArray(this.enemies)) {
+            for (const enemy of this.enemies) {
+                enemy.display(this.ctx, this);
+            }
+        }
+
         // Render Players
         for (const id in this.players) {
             this.players[id].display(this.ctx, this);
+        }
+
+        // Render Floating Damage Counters (Top Layer)
+        if (this.damageCounters && Array.isArray(this.damageCounters)) {
+            for (const dc of this.damageCounters) {
+                dc.display(this.ctx);
+            }
         }
 
         this.ctx.restore();

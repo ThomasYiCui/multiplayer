@@ -71,38 +71,82 @@
 
     <!-- SCREEN 3: ACTIVE GAME CANVAS -->
     <div id="gameScreen" class="screen" style="display: none; position: relative;">
-        <!-- Top RPG HUD -->
-        <div id="hudBar" class="game-hud">
-            <div class="hud-left">
-                <span class="realm-badge" id="hudWorldName">Aethelgard</span>
-                <span class="hud-stat" id="hudPlayerLevel">Lv. 1</span>
-                <div class="hud-hp-wrap">
-                    <span class="hud-hp-label">HP</span>
-                    <div class="hud-hp-bg">
-                        <div class="hud-hp-fill" id="hudHpFill" style="width: 100%;"></div>
-                    </div>
-                    <span class="hud-hp-text" id="hudHpText">100 / 100</span>
+        <!-- BOTTOM-RIGHT PLAYER STATUS HUD -->
+        <div id="playerStatusHud" class="bottom-player-hud glass-panel">
+            <div class="player-hud-header">
+                <div class="player-hud-name-wrap">
+                    <span id="hudPlayerLevel" class="hud-level-pill">Lv. 1</span>
+                    <span id="hudPlayerName" class="hud-player-name">Adventurer</span>
                 </div>
-                <span class="hud-gold" id="hudGoldText">0 Gold</span>
+                <div class="player-hud-meta">
+                    <span id="hudGoldText" class="hud-gold-text">0 Gold</span>
+                    <span id="hudPing" class="hud-ping-pill">-- ms</span>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <button id="toggleHitboxBtn" class="leave-btn" style="background: #065f46; border-color: #059669; font-size: 12px; padding: 6px 12px;">Hitboxes: ON [H]</button>
-                <button id="leaveWorldBtn" class="leave-btn">Leave Realm</button>
+
+            <!-- Health Bar -->
+            <div class="stat-bar-group">
+                <div class="stat-bar-header">
+                    <span class="stat-label stat-label-hp">Health</span>
+                    <span id="hudHpText" class="stat-value">100 / 100</span>
+                </div>
+                <div class="stat-bar-track">
+                    <div id="hudHpFill" class="stat-bar-fill stat-fill-hp" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Stamina Bar -->
+            <div class="stat-bar-group">
+                <div class="stat-bar-header">
+                    <span class="stat-label stat-label-stamina">Stamina</span>
+                    <span id="hudStaminaText" class="stat-value">100 / 100</span>
+                </div>
+                <div class="stat-bar-track">
+                    <div id="hudStaminaFill" class="stat-bar-fill stat-fill-stamina" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- EXP Bar -->
+            <div class="stat-bar-group">
+                <div class="stat-bar-header">
+                    <span class="stat-label stat-label-exp">EXP</span>
+                    <span id="hudExpText" class="stat-value">0 / 100 XP</span>
+                </div>
+                <div class="stat-bar-track">
+                    <div id="hudExpFill" class="stat-bar-fill stat-fill-exp" style="width: 0%;"></div>
+                </div>
             </div>
         </div>
 
-        <div id="escapeMenu">
-
+        <!-- ESCAPE MENU MODAL OVERLAY -->
+        <div id="escapeMenu" class="escape-overlay" style="display: none;">
+            <div class="escape-card glass-panel">
+                <h2 class="escape-title">Game Menu</h2>
+                <div class="escape-server-box">
+                    <span class="escape-server-label">Current Realm</span>
+                    <span id="escapeServerName" class="escape-server-name">Aethelgard</span>
+                </div>
+                <div class="escape-btn-group">
+                    <button id="escapeResumeBtn" class="escape-btn resume-btn">Resume Game [ESC]</button>
+                    <button id="escapeHitboxBtn" class="escape-btn toggle-btn">Hitboxes: ON [H]</button>
+                    <button id="leaveWorldBtn" class="escape-btn leave-btn">Leave Server</button>
+                </div>
+            </div>
         </div>
 
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <script src="network.js?v=6"></script>
-    <script src="wall.js?v=6"></script>
-    <script src="weapon.js?v=6"></script>
-    <script src="player.js?v=6"></script>
-    <script src="game.js?v=6"></script>
+    <script src="particles.js?v=14"></script>
+    <script src="damage_counter.js?v=14"></script>
+    <script src="character.js?v=14"></script>
+    <script src="wall.js?v=14"></script>
+    <script src="weapon.js?v=14"></script>
+    <script src="enemy.js?v=14"></script>
+    <script src="Enemies/slime.js?v=14"></script>
+    <script src="player.js?v=14"></script>
+    <script src="network.js?v=14"></script>
+    <script src="game.js?v=14"></script>
 </body>
 
 </html>

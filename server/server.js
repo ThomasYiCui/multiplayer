@@ -203,27 +203,229 @@ async function getAllUsers() {
     }
 }
 
-// 2. THE 3 PERSISTENT WORLDS (Max 50 players each)
+// 2. THE 3 PERSISTENT WORLDS (Max 50 players each) & SERVER-SIDE ENEMIES
+function createInitialWorldEnemies(worldId) {
+    const enemies = {};
+    let nextId = 1;
+
+    function addEnemy(type, name, hp, speed, size, damage, xpReward, goldReward, aggroRadius, attackInterval, x, y) {
+        const id = `${worldId}_enemy_${nextId++}`;
+        enemies[id] = {
+            id,
+            type,
+            name,
+            hp,
+            maxHp: hp,
+            speed,
+            size,
+            damage,
+            xpReward,
+            goldReward,
+            aggroRadius,
+            attackInterval,
+            x,
+            y,
+            spawnX: x,
+            spawnY: y,
+            vX: 0,
+            vY: 0,
+            knockbackX: 0,
+            knockbackY: 0,
+            r: 0,
+            wanderAngle: Math.random() * Math.PI * 2,
+            wanderTimer: Math.random() * 2 + 1.5,
+            attackCooldownTimer: Math.random() * 0.5,
+            attackSwingTimer: 0,
+            isAttacking: false,
+            isDead: false
+        };
+    }
+
+    // 1. Slime Nest (East forest clearing - 4 Bouncing Slimes)
+    const slimes = [
+        { x: 700, y: 160 }, { x: 740, y: 200 }, { x: 680, y: 220 }, { x: 750, y: 150 }
+    ];
+    for (const s of slimes) {
+        addEnemy('Slime', 'Slime', 40, 130, 17, 8, 25, 6, 260, 0.8, s.x, s.y);
+    }
+
+    // 2. Goblin Camp (South-East ruins - 3 Goblins)
+    const goblins = [
+        { x: 740, y: 560 }, { x: 780, y: 600 }, { x: 720, y: 620 }
+    ];
+    for (const g of goblins) {
+        addEnemy('Goblin', 'Goblin', 60, 150, 16, 12, 35, 12, 280, 0.9, g.x, g.y);
+    }
+
+    // 3. Skeleton Crypt (South-West dungeon - 3 Skeleton Warriors)
+    const skeletons = [
+        { x: -140, y: 500 }, { x: -180, y: 540 }, { x: -120, y: 560 }
+    ];
+    for (const sk of skeletons) {
+        addEnemy('Skeleton', 'Skeleton', 85, 110, 18, 16, 50, 20, 300, 1.2, sk.x, sk.y);
+    }
+
+    // 4. Orc Outpost (North-West mountain - 1 Orc Berserker + 2 Goblins)
+    addEnemy('Orc', 'Orc Berserker', 170, 85, 26, 28, 120, 60, 320, 1.5, -220, -120);
+    addEnemy('Goblin', 'Goblin', 60, 150, 16, 12, 35, 12, 280, 0.9, -170, -80);
+    addEnemy('Goblin', 'Goblin', 60, 150, 16, 12, 35, 12, 280, 0.9, -260, -140);
+
+    return enemies;
+}
+
 const WORLDS = {
     'world-1': {
         id: 'world-1',
         name: 'Server 1',
         maxPlayers: 50,
-        players: {}
+        players: {},
+        enemies: createInitialWorldEnemies('world-1')
     },
     'world-2': {
         id: 'world-2',
         name: 'Server 2',
         maxPlayers: 50,
-        players: {}
+        players: {},
+        enemies: createInitialWorldEnemies('world-2')
     },
     'world-3': {
         id: 'world-3',
         name: 'Server 3',
         maxPlayers: 50,
-        players: {}
+        players: {},
+        enemies: createInitialWorldEnemies('world-3')
     }
 };
+
+// SERVER SIMULATION TICK LOOP (20 Hz)
+const SERVER_TICK_RATE = 20; // 20 updates per second
+const DT = 1 / SERVER_TICK_RATE; // 0.05s
+
+setInterval(() => {
+    for (const worldId in WORLDS) {
+        const world = WORLDS[worldId];
+        const playerCount = Object.keys(world.players).length;
+        if (playerCount === 0) continue; // Skip computing AI when no players are in the world
+
+        for (const enemyId in world.enemies) {
+            const enemy = world.enemies[enemyId];
+            if (enemy.isDead) continue;
+
+            // 1. Knockback Physics
+            if (Math.abs(enemy.knockbackX) > 2 || Math.abs(enemy.knockbackY) > 2) {
+                enemy.x += enemy.knockbackX * DT;
+                enemy.y += enemy.knockbackY * DT;
+                const friction = Math.pow(0.015, DT);
+                enemy.knockbackX *= friction;
+                enemy.knockbackY *= friction;
+            } else {
+                enemy.knockbackX = 0;
+                enemy.knockbackY = 0;
+            }
+
+            // 2. Timers
+            if (enemy.attackCooldownTimer > 0) enemy.attackCooldownTimer -= DT;
+            if (enemy.attackSwingTimer > 0) enemy.attackSwingTimer -= DT;
+            if (enemy.attackSwingTimer <= 0) enemy.isAttacking = false;
+
+            // 3. Find Nearest Player
+            let nearestPlayer = null;
+            let minDist = Infinity;
+            for (const pid in world.players) {
+                const p = world.players[pid];
+                if (p.hp <= 0) continue;
+                const dist = Math.hypot(p.x - enemy.x, p.y - enemy.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestPlayer = p;
+                }
+            }
+
+            // 4. AI Behavior
+            if (nearestPlayer && minDist <= enemy.aggroRadius) {
+                enemy.r = Math.atan2(enemy.y - nearestPlayer.y, enemy.x - nearestPlayer.x);
+                const stopDist = enemy.size + 20;
+
+                if (minDist > stopDist) {
+                    const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
+                    const currentSpeed = enemy.isAttacking ? enemy.speed * 0.4 : enemy.speed;
+                    enemy.x += Math.cos(angle) * currentSpeed * DT;
+                    enemy.y += Math.sin(angle) * currentSpeed * DT;
+                }
+
+                // Enemy attacks Player
+                if (minDist <= enemy.size + 28 && enemy.attackCooldownTimer <= 0) {
+                    enemy.attackCooldownTimer = enemy.attackInterval;
+                    enemy.isAttacking = true;
+                    enemy.attackSwingTimer = 0.35;
+
+                    nearestPlayer.hp = Math.max(0, nearestPlayer.hp - enemy.damage);
+                    const pushAngle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
+
+                    io.to(world.id).emit('playerDamaged', {
+                        targetId: nearestPlayer.id,
+                        attackerId: enemy.id,
+                        damage: enemy.damage,
+                        hp: nearestPlayer.hp,
+                        maxHp: nearestPlayer.maxHp,
+                        pushAngle: pushAngle,
+                        pushForce: 450
+                    });
+
+                    if (nearestPlayer.hp <= 0) {
+                        setTimeout(() => {
+                            if (world.players[nearestPlayer.id]) {
+                                world.players[nearestPlayer.id].hp = world.players[nearestPlayer.id].maxHp;
+                                world.players[nearestPlayer.id].x = Math.floor(Math.random() * 400) + 100;
+                                world.players[nearestPlayer.id].y = Math.floor(Math.random() * 300) + 100;
+
+                                io.to(world.id).emit('playerRespawned', {
+                                    id: nearestPlayer.id,
+                                    hp: world.players[nearestPlayer.id].hp,
+                                    x: world.players[nearestPlayer.id].x,
+                                    y: world.players[nearestPlayer.id].y
+                                });
+                            }
+                        }, 2000);
+                    }
+                }
+            } else {
+                // Roam around spawn anchor
+                enemy.wanderTimer -= DT;
+                if (enemy.wanderTimer <= 0) {
+                    enemy.wanderAngle = Math.random() * Math.PI * 2;
+                    enemy.wanderTimer = Math.random() * 3 + 1.5;
+                }
+                const distFromSpawn = Math.hypot(enemy.x - enemy.spawnX, enemy.y - enemy.spawnY);
+                if (distFromSpawn > 250) {
+                    enemy.wanderAngle = Math.atan2(enemy.spawnY - enemy.y, enemy.spawnX - enemy.x);
+                }
+                enemy.x += Math.cos(enemy.wanderAngle) * (enemy.speed * 0.45) * DT;
+                enemy.y += Math.sin(enemy.wanderAngle) * (enemy.speed * 0.45) * DT;
+                enemy.r = enemy.wanderAngle + Math.PI;
+            }
+        }
+
+        // Broadcast World Enemies Snapshot (20 Hz)
+        const snapshots = Object.values(world.enemies).map(e => ({
+            id: e.id,
+            type: e.type,
+            name: e.name,
+            x: Math.round(e.x * 10) / 10,
+            y: Math.round(e.y * 10) / 10,
+            r: Math.round(e.r * 100) / 100,
+            hp: Math.round(e.hp),
+            maxHp: e.maxHp,
+            isAttacking: e.isAttacking,
+            isDead: e.isDead
+        }));
+
+        io.to(world.id).emit('enemiesUpdate', {
+            time: Date.now(),
+            enemies: snapshots
+        });
+    }
+}, 1000 / SERVER_TICK_RATE);
 
 function getWorldsList() {
     return Object.values(WORLDS).map(w => ({
@@ -571,7 +773,18 @@ io.on('connection', (socket) => {
             worldName: world.name,
             selfId: socket.id,
             user: currentUser,
-            players: world.players
+            players: world.players,
+            enemies: Object.values(world.enemies).map(e => ({
+                id: e.id,
+                type: e.type,
+                name: e.name,
+                x: e.x,
+                y: e.y,
+                hp: e.hp,
+                maxHp: e.maxHp,
+                level: e.level,
+                isDead: e.isDead
+            }))
         });
 
         socket.to(worldId).emit('playerJoined', newPlayer);
@@ -594,6 +807,11 @@ io.on('connection', (socket) => {
         socket.emit('worldList', getWorldsList());
     });
 
+    // PING / LATENCY CHECK
+    socket.on('pingCheck', (clientTimestamp) => {
+        socket.emit('pongCheck', clientTimestamp);
+    });
+
     // UNIFIED PLAYER UPDATE (Position + Rotation + State)
     socket.on('playerUpdate', (data) => {
         if (currentWorld && WORLDS[currentWorld]?.players[socket.id]) {
@@ -610,7 +828,8 @@ io.on('connection', (socket) => {
                 y: data.y,
                 r: data.r,
                 mouseX: data.mouseX,
-                mouseY: data.mouseY
+                mouseY: data.mouseY,
+                time: data.time || Date.now()
             });
         }
     });
@@ -622,7 +841,7 @@ io.on('connection', (socket) => {
             p.x = data.x;
             p.y = data.y;
 
-            socket.to(currentWorld).emit('playerMoved', { id: socket.id, x: data.x, y: data.y });
+            socket.to(currentWorld).emit('playerMoved', { id: socket.id, x: data.x, y: data.y, time: Date.now() });
         }
     });
 
@@ -642,20 +861,32 @@ io.on('connection', (socket) => {
                 mouseY: data.mouseY,
                 r: data.r,
                 clicked: data.clicked,
-                dragged: data.dragged
+                dragged: data.dragged,
+                time: Date.now()
             });
         }
     });
 
-    // COMBAT: Player hits another player
-    socket.on('playerHit', ({ targetId, damage, pushAngle, pushForce, pushX, pushY }) => {
+    // COMBAT: Player hits another player (Server Validated)
+    socket.on('playerHit', ({ targetId, damage, pushAngle, pushForce }) => {
         if (!currentWorld || !WORLDS[currentWorld]) return;
         const world = WORLDS[currentWorld];
         const target = world.players[targetId];
         const attacker = world.players[socket.id];
 
         if (target && attacker) {
-            const actualDamage = Math.max(1, damage || 15);
+            if (target.hp <= 0 || attacker.hp <= 0) return;
+
+            // SERVER HIT VALIDATION: Check distance between attacker and target
+            const dist = Math.hypot(target.x - attacker.x, target.y - attacker.y);
+            const MAX_ALLOWED_DISTANCE = 280; // Max weapon reach (Spear 172 + radius 20 + tolerance 88)
+
+            if (dist > MAX_ALLOWED_DISTANCE) {
+                console.log(`[Combat] Rejected out-of-range hit from ${attacker.name} to ${target.name} (dist: ${dist.toFixed(1)}px > ${MAX_ALLOWED_DISTANCE}px)`);
+                return;
+            }
+
+            const actualDamage = Math.min(50, Math.max(1, damage || 15));
             target.hp = Math.max(0, target.hp - actualDamage);
 
             const force = pushForce || 480;
@@ -689,6 +920,94 @@ io.on('connection', (socket) => {
                     }
                 }, 2000);
             }
+        }
+    });
+
+    // COMBAT: Player hits an Enemy (Server Validated)
+    socket.on('enemyHit', ({ enemyId, damage, pushAngle, pushForce }) => {
+        if (!currentWorld || !WORLDS[currentWorld]) return;
+        const world = WORLDS[currentWorld];
+        const attacker = world.players[socket.id];
+        const enemy = world.enemies[enemyId];
+
+        if (!attacker || !enemy || enemy.isDead || attacker.hp <= 0) return;
+
+        // Distance validation
+        const dist = Math.hypot(enemy.x - attacker.x, enemy.y - attacker.y);
+        const MAX_ALLOWED_DISTANCE = 300;
+        if (dist > MAX_ALLOWED_DISTANCE) {
+            return;
+        }
+
+        const actualDamage = Math.min(80, Math.max(1, damage || 15));
+        enemy.hp = Math.max(0, enemy.hp - actualDamage);
+
+        const angle = pushAngle !== undefined ? pushAngle : Math.atan2(enemy.y - attacker.y, enemy.x - attacker.x);
+        const force = pushForce || 600;
+
+        enemy.knockbackX = Math.cos(angle) * force;
+        enemy.knockbackY = Math.sin(angle) * force;
+
+        io.to(currentWorld).emit('enemyDamaged', {
+            enemyId: enemy.id,
+            attackerId: socket.id,
+            damage: actualDamage,
+            hp: enemy.hp,
+            maxHp: enemy.maxHp,
+            pushAngle: angle,
+            pushForce: force
+        });
+
+        if (enemy.hp <= 0) {
+            enemy.isDead = true;
+
+            // Reward attacker (EXP & Gold)
+            if (currentUser) {
+                currentUser.xp = (currentUser.xp || 0) + (enemy.xpReward || 20);
+                currentUser.gold = (currentUser.gold || 0) + (enemy.goldReward || 5);
+                const neededXp = (currentUser.level || 1) * 100;
+                if (currentUser.xp >= neededXp) {
+                    currentUser.level = (currentUser.level || 1) + 1;
+                    currentUser.xp -= neededXp;
+                    currentUser.maxHp = (currentUser.maxHp || 100) + 20;
+                    currentUser.hp = currentUser.maxHp;
+                }
+                saveUserStats(currentUser);
+
+                // Sync updated stats to attacker client
+                socket.emit('authSuccess', { user: currentUser });
+            }
+
+            io.to(currentWorld).emit('enemyDied', {
+                enemyId: enemy.id,
+                killerId: socket.id,
+                xpReward: enemy.xpReward,
+                goldReward: enemy.goldReward
+            });
+
+            // Schedule Respawn after 12 seconds
+            setTimeout(() => {
+                if (world.enemies[enemy.id]) {
+                    const e = world.enemies[enemy.id];
+                    e.hp = e.maxHp;
+                    e.isDead = false;
+                    e.x = e.spawnX;
+                    e.y = e.spawnY;
+                    e.knockbackX = 0;
+                    e.knockbackY = 0;
+
+                    io.to(world.id).emit('enemySpawned', {
+                        id: e.id,
+                        type: e.type,
+                        name: e.name,
+                        x: e.x,
+                        y: e.y,
+                        hp: e.hp,
+                        maxHp: e.maxHp,
+                        level: e.level
+                    });
+                }
+            }, 12000);
         }
     });
 

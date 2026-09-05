@@ -5,6 +5,8 @@ class NetworkManager {
         this.selfId = null;
         this.currentWorldId = null;
         this.currentUser = null;
+        this.ping = 0;
+        this.pingInterval = null;
 
         // Event callbacks
         this.onConnected = null;
@@ -18,6 +20,7 @@ class NetworkManager {
         this.onPlayerMouse = null;
         this.onPlayerUpdate = null;
         this.onPlayerLeft = null;
+        this.onPingUpdate = null;
         this.onError = null;
     }
 
@@ -30,7 +33,14 @@ class NetworkManager {
 
         this.socket.on('connect', () => {
             console.log('[Network] Connected successfully! Socket ID:', this.socket.id);
+            this.startPingCheck();
             if (this.onConnected) this.onConnected();
+        });
+
+        this.socket.on('pongCheck', (clientTimestamp) => {
+            const now = Date.now();
+            this.ping = Math.max(1, now - clientTimestamp);
+            if (this.onPingUpdate) this.onPingUpdate(this.ping);
         });
 
         this.socket.on('connect_error', (err) => {
@@ -91,21 +101,64 @@ class NetworkManager {
             if (this.onPlayerRespawned) this.onPlayerRespawned(data);
         });
 
+        // Server-Side Synced Enemies Listeners
+        this.socket.on('enemiesUpdate', (data) => {
+            if (this.onEnemiesUpdate) this.onEnemiesUpdate(data);
+        });
+
+        this.socket.on('enemyDamaged', (data) => {
+            if (this.onEnemyDamaged) this.onEnemyDamaged(data);
+        });
+
+        this.socket.on('enemyDied', (data) => {
+            if (this.onEnemyDied) this.onEnemyDied(data);
+        });
+
+        this.socket.on('enemySpawned', (data) => {
+            if (this.onEnemySpawned) this.onEnemySpawned(data);
+        });
+
         this.socket.on('errorMsg', (msg) => {
             console.error('[Network] Server error:', msg);
             if (this.onError) this.onError(msg);
         });
     }
 
+    startPingCheck() {
+        if (this.pingInterval) clearInterval(this.pingInterval);
+        this.pingInterval = setInterval(() => {
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('pingCheck', Date.now());
+            }
+        }, 2000);
+        // Initial ping immediately
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('pingCheck', Date.now());
+        }
+    }
+
     sendUpdate(x, y, r, mouseX, mouseY) {
         if (this.socket && this.socket.connected) {
-            this.socket.emit('playerUpdate', { x, y, r, mouseX, mouseY });
+            this.socket.emit('playerUpdate', {
+                x,
+                y,
+                r,
+                mouseX,
+                mouseY,
+                time: Date.now()
+            });
         }
     }
 
     sendHit(targetId, damage, pushAngle, pushForce) {
         if (this.socket && this.socket.connected) {
             this.socket.emit('playerHit', { targetId, damage, pushAngle, pushForce });
+        }
+    }
+
+    sendEnemyHit(enemyId, damage, pushAngle, pushForce) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('enemyHit', { enemyId, damage, pushAngle, pushForce });
         }
     }
 

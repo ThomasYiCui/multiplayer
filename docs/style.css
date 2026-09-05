@@ -383,83 +383,250 @@ input:focus {
     z-index: 10;
 }
 
-#escapeMenu {}
+.glass-panel {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
 
-.hud-left {
+/* ESCAPE MENU MODAL OVERLAY */
+.escape-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(11, 15, 25, 0.75);
+    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
+    justify-content: center;
+    z-index: 1000;
 }
 
-.realm-badge {
-    background: #0284c7;
-    color: white;
+.escape-card {
+    width: 320px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.escape-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.escape-server-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.escape-server-label {
+    font-size: 11px;
+    text-transform: uppercase;
     font-weight: 700;
-    font-size: 13px;
-    padding: 4px 10px;
-    border-radius: 6px;
+    color: #94a3b8;
 }
 
-.hud-stat {
-    font-size: 13px;
+.escape-server-name {
+    font-size: 15px;
     font-weight: 700;
     color: #38bdf8;
 }
 
-.hud-hp-wrap {
+.escape-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.escape-btn {
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.escape-btn.resume-btn {
+    background: #0284c7;
+    color: white;
+    border-color: #0369a1;
+}
+
+.escape-btn.resume-btn:hover {
+    background: #0369a1;
+}
+
+.escape-btn.toggle-btn {
+    background: #065f46;
+    color: white;
+    border-color: #059669;
+}
+
+.escape-btn.toggle-btn:hover {
+    background: #047857;
+}
+
+.escape-btn.leave-btn {
+    background: #dc2626;
+    color: white;
+    border-color: #b91c1c;
+}
+
+.escape-btn.leave-btn:hover {
+    background: #b91c1c;
+}
+
+/* BOTTOM-RIGHT PLAYER STATUS HUD */
+.bottom-player-hud {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 270px;
+    padding: 14px 16px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+}
+
+.player-hud-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 7px;
+}
+
+.player-hud-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hud-level-pill {
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.hud-player-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.player-hud-meta {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.hud-hp-label {
-    font-size: 11px;
-    font-weight: 800;
-    color: #ef4444;
-}
-
-.hud-hp-bg {
-    width: 120px;
-    height: 10px;
-    background: #334155;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid #475569;
-}
-
-.hud-hp-fill {
-    height: 100%;
-    background: #10b981;
-    transition: width 0.2s ease;
-}
-
-.hud-hp-text {
+.hud-gold-text {
     font-size: 12px;
-    color: #cbd5e1;
-    font-weight: 600;
-}
-
-.hud-gold {
-    font-size: 13px;
     font-weight: 700;
     color: #fbbf24;
 }
 
-.leave-btn {
-    background: #ef4444;
-    color: white;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 12px;
+.hud-ping-pill {
+    font-size: 10px;
     font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.2s;
+    color: #34d399;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid #334155;
+    padding: 2px 5px;
+    border-radius: 4px;
 }
 
-.leave-btn:hover {
-    opacity: 0.9;
+.stat-bar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.stat-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.stat-label-hp {
+    color: #ef4444;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+
+.stat-label-stamina {
+    color: #38bdf8;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+
+.stat-label-exp {
+    color: #c084fc;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+
+.stat-value {
+    font-size: 11px;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-family: monospace, sans-serif;
+}
+
+.stat-bar-track {
+    width: 100%;
+    height: 8px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.stat-bar-fill {
+    height: 100%;
+    transition: width 0.2s ease-out;
+}
+
+.stat-fill-hp {
+    background: #10b981;
+}
+
+.stat-fill-stamina {
+    background: #0284c7;
+}
+
+.stat-fill-exp {
+    background: #9333ea;
 }
 
 canvas {
