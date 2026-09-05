@@ -114,11 +114,11 @@ class Player {
             }
         } else {
             // Apply physical knockback velocity
-            const force = 480;
+            const force = 650;
             this.knockbackX = Math.cos(pushAngle) * force;
             this.knockbackY = Math.sin(pushAngle) * force;
-            this.targetX = this.x + Math.cos(pushAngle) * 60;
-            this.targetY = this.y + Math.sin(pushAngle) * 60;
+            this.targetX = this.x + Math.cos(pushAngle) * 80;
+            this.targetY = this.y + Math.sin(pushAngle) * 80;
 
             this.spawnBloodParticles(contactX, contactY, pushAngle, false);
         }
@@ -146,11 +146,15 @@ class Player {
             this.spawnBloodParticles(this.x, this.y, angle, true);
         } else {
             // Apply smooth knockback impulse
-            const force = pushForce || 480;
+            const force = pushForce || 650;
             this.knockbackX = Math.cos(angle) * force;
             this.knockbackY = Math.sin(angle) * force;
 
             this.spawnBloodParticles(this.x, this.y, angle, false);
+
+            if (this.isSelf) {
+                this.lastSyncTime = 0; // Force immediate broadcast of knocked position
+            }
         }
     }
 
@@ -271,11 +275,11 @@ class Player {
         if (this.hitCooldown > 0) this.hitCooldown -= dt;
         if (this.hitFlash > 0) this.hitFlash -= dt;
 
-        // Update knockback velocity with exponential friction
-        if (Math.abs(this.knockbackX) > 1 || Math.abs(this.knockbackY) > 1) {
+        // Update knockback velocity with smooth exponential friction
+        if (Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2) {
             this.x += this.knockbackX * dt;
             this.y += this.knockbackY * dt;
-            const friction = Math.pow(0.005, dt);
+            const friction = Math.pow(0.015, dt);
             this.knockbackX *= friction;
             this.knockbackY *= friction;
         } else {
@@ -367,14 +371,18 @@ class Player {
 
                         // Calculate physical knockback vector
                         const pushAngle = Math.atan2(target.y - this.y, target.x - this.x);
-                        const pushForce = 480;
+                        const pushForce = 650;
 
                         if (game.isOffline || target.id === 'training-dummy') {
                             // Offline / Solo Mode: Apply local damage and knockback
                             target.takeDamage(hitResult.damage, this, hitResult.contactX, hitResult.contactY);
                         } else if (game.network) {
-                            // Online Multiplayer: DO NOT mutate target position locally!
-                            // Spawn visual impact effects and let server/victim handle their position
+                            // Online Multiplayer: Apply immediate knockback & blood feedback on target
+                            target.knockbackX = Math.cos(pushAngle) * pushForce;
+                            target.knockbackY = Math.sin(pushAngle) * pushForce;
+                            target.targetX = target.x + Math.cos(pushAngle) * 80;
+                            target.targetY = target.y + Math.sin(pushAngle) * 80;
+
                             target.spawnBloodParticles(hitResult.contactX, hitResult.contactY, pushAngle, false);
                             target.floatingTexts.push({
                                 text: `-${hitResult.damage}`,
@@ -415,10 +423,15 @@ class Player {
 
         if (!this.isSelf) {
             if (this.targetX !== undefined && this.targetY !== undefined) {
-                // Smooth position interpolation towards streamed authority position
-                const lerpRate = Math.min(1, 25 * dt);
-                this.x += (this.targetX - this.x) * lerpRate;
-                this.y += (this.targetY - this.y) * lerpRate;
+                // If remote player is being knocked back, let knockback slide without lerp canceling it
+                if (Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2) {
+                    this.targetX = this.x;
+                    this.targetY = this.y;
+                } else {
+                    const lerpRate = Math.min(1, 20 * dt);
+                    this.x += (this.targetX - this.x) * lerpRate;
+                    this.y += (this.targetY - this.y) * lerpRate;
+                }
             }
             if (this.targetR !== undefined) {
                 // Shortest angular distance interpolation for smooth sword rotation
