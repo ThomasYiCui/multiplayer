@@ -31,12 +31,33 @@ class Enemy extends Character {
         this.wanderAngle = Math.random() * Math.PI * 2;
         this.wanderTimer = Math.random() * 2 + 1.5;
 
+        // Visual Additive Knockback Impulse & Server Network Coordinates
+        this.netX = x;
+        this.netY = y;
+        this.impulseOffsetX = 0;
+        this.impulseOffsetY = 0;
+
         // Network Snapshot Interpolation Buffer
         this.snapshotBuffer = [];
         this.addSnapshot({ x, y, r: 0, hp: this.hp, maxHp: this.maxHp, time: Date.now() });
     }
 
     addSnapshot(data) {
+        if (this.netX === undefined) {
+            this.netX = data.x;
+            this.netY = data.y;
+        }
+
+        // Handle teleport or initial spawn sync
+        if (Math.hypot(data.x - this.netX, data.y - this.netY) > 250) {
+            this.netX = data.x;
+            this.netY = data.y;
+            this.x = data.x;
+            this.y = data.y;
+            this.impulseOffsetX = 0;
+            this.impulseOffsetY = 0;
+        }
+
         const snap = {
             x: data.x,
             y: data.y,
@@ -62,6 +83,15 @@ class Enemy extends Character {
         if (data.maxHp !== undefined) this.maxHp = data.maxHp;
         this.isAttacking = data.isAttacking || false;
         this.isDead = data.isDead || false;
+    }
+
+    applyKnockback(angle, force = 650) {
+        // Immediate additive visual impulse offset (0ms client reaction, zero rubberbanding)
+        const pushDist = Math.min(65, (force || 650) * 0.085);
+        this.impulseOffsetX = Math.cos(angle) * pushDist;
+        this.impulseOffsetY = Math.sin(angle) * pushDist;
+        this.x = this.netX + this.impulseOffsetX;
+        this.y = this.netY + this.impulseOffsetY;
     }
 
     updateNetworkInterpolation(dt, game) {
@@ -90,14 +120,14 @@ class Enemy extends Character {
             const targetX = s0.x + (s1.x - s0.x) * t;
             const targetY = s0.y + (s1.y - s0.y) * t;
 
-            const dist = Math.hypot(targetX - this.x, targetY - this.y);
+            const dist = Math.hypot(targetX - this.netX, targetY - this.netY);
             if (dist > 180) {
-                this.x = targetX;
-                this.y = targetY;
+                this.netX = targetX;
+                this.netY = targetY;
             } else {
-                const lerpRate = Math.min(1, 15 * dt);
-                this.x += (targetX - this.x) * lerpRate;
-                this.y += (targetY - this.y) * lerpRate;
+                const lerpRate = Math.min(1, 18 * dt);
+                this.netX += (targetX - this.netX) * lerpRate;
+                this.netY += (targetY - this.netY) * lerpRate;
             }
 
             let diff = (s1.r - s0.r) % (Math.PI * 2);
@@ -105,14 +135,28 @@ class Enemy extends Character {
             if (diff > Math.PI) diff -= Math.PI * 2;
             this.r = s0.r + diff * t;
         } else if (s0) {
-            const lerpRate = Math.min(1, 15 * dt);
-            this.x += (s0.x - this.x) * lerpRate;
-            this.y += (s0.y - this.y) * lerpRate;
+            const lerpRate = Math.min(1, 18 * dt);
+            this.netX += (s0.x - this.netX) * lerpRate;
+            this.netY += (s0.y - this.netY) * lerpRate;
             let diff = (s0.r - this.r) % (Math.PI * 2);
             if (diff < -Math.PI) diff += Math.PI * 2;
             if (diff > Math.PI) diff -= Math.PI * 2;
-            this.r += diff * Math.min(1, 15 * dt);
+            this.r += diff * Math.min(1, 18 * dt);
         }
+
+        // Decay the visual knockback impulse offset smoothly
+        if (Math.abs(this.impulseOffsetX) > 0.2 || Math.abs(this.impulseOffsetY) > 0.2) {
+            const decay = Math.pow(0.002, dt);
+            this.impulseOffsetX *= decay;
+            this.impulseOffsetY *= decay;
+        } else {
+            this.impulseOffsetX = 0;
+            this.impulseOffsetY = 0;
+        }
+
+        // Render position is smoothly tracked base network position + decaying local impulse
+        this.x = this.netX + this.impulseOffsetX;
+        this.y = this.netY + this.impulseOffsetY;
     }
 
     onServerDamaged(damage, newHp, pushAngle, pushForce, attackerId, game) {
@@ -128,7 +172,7 @@ class Enemy extends Character {
 
             const angle = pushAngle !== undefined ? pushAngle : Math.random() * Math.PI * 2;
             const force = pushForce || 600;
-            this.applyKnockback(angle, force);
+            this.applyKnockback(angle, force * 0.7);
 
             if (game && game.spawnBlood) {
                 game.spawnBlood(this.x, this.y, this.bloodColor, newHp <= 0 ? 26 : 10, angle, newHp <= 0);
@@ -235,18 +279,18 @@ class Enemy extends Character {
     }
 
     update(dt, game) {
-        this.updateGeneral(dt);
-
         if (this.isDead || this.hp <= 0) return;
 
         if (this.attackCooldownTimer > 0) this.attackCooldownTimer -= dt;
         if (this.attackSwingTimer > 0) this.attackSwingTimer -= dt;
 
         if (game && !game.isOffline) {
-            // Online multiplayer: smooth snapshot interpolation from server
+            // Online multiplayer: smooth snapshot interpolation + visual impulse offset
+            this.updateHealth(dt);
             this.updateNetworkInterpolation(dt, game);
         } else {
-            // Offline solo mode: local AI execution
+            // Offline solo mode: local physics & AI execution
+            this.updateGeneral(dt);
             const { player, dist } = this.getNearestPlayer(game);
             this.updateAI(dt, game, player, dist);
         }
@@ -258,7 +302,9 @@ class Enemy extends Character {
     updateAI(dt, game, player, dist) {
         if (player && dist <= this.aggroRadius) {
             this.r = Math.atan2(this.y - player.y, this.x - player.x);
-            const stopDist = this.size + (player.size || 20) - 2;
+            const playerRadius = player.size || 20;
+            const contactDist = this.size + playerRadius;
+            const stopDist = contactDist - 4;
 
             if (dist > stopDist) {
                 const angle = Math.atan2(player.y - this.y, player.x - this.x);
@@ -267,7 +313,7 @@ class Enemy extends Character {
                 this.y += Math.sin(angle) * currentSpeed * dt;
             }
 
-            if (dist <= this.size + (player.size || 20) + 12 && this.attackCooldownTimer <= 0) {
+            if (dist <= contactDist && this.attackCooldownTimer <= 0) {
                 this.attackCooldownTimer = this.attackInterval;
                 this.isAttacking = true;
                 this.attackSwingTimer = 0.35;
@@ -316,21 +362,35 @@ class Enemy extends Character {
             this.drawDefaultBody(ctx);
         }
 
-        // 4. Debug Hitbox
+        // 4. Debug Hitbox & Attack Range Indicators
         if (game && game.showHitboxes) {
             ctx.save();
-            // Outer dashed neon circle
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 2;
+            const playerRadius = 20;
+            const contactDist = this.size + playerRadius;
+
+            // Attack Reach Circle (Dashed Red - triggers damage when player touches this line)
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.05)';
+            ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size + 5, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, contactDist, 0, Math.PI * 2);
+            ctx.fill();
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Solid collision boundary (Glowing Cyan/Green)
+            // Outer Dashed Neon Cyan Ring
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size + 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Solid Body Collision Boundary (Neon Green)
             ctx.strokeStyle = '#22c55e';
-            ctx.fillStyle = 'rgba(34, 197, 94, 0.25)';
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.28)';
             ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -341,17 +401,17 @@ class Enemy extends Character {
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.moveTo(this.x - 5, this.y);
-            ctx.lineTo(this.x + 5, this.y);
-            ctx.moveTo(this.x, this.y - 5);
-            ctx.lineTo(this.x, this.y + 5);
+            ctx.moveTo(this.x - 6, this.y);
+            ctx.lineTo(this.x + 6, this.y);
+            ctx.moveTo(this.x, this.y - 6);
+            ctx.lineTo(this.x, this.y + 6);
             ctx.stroke();
 
-            // Hitbox size label
+            // Information badge below enemy
             ctx.font = 'bold 9px monospace';
             ctx.fillStyle = '#38bdf8';
             ctx.textAlign = 'center';
-            ctx.fillText(`HITBOX: ${this.size}px`, this.x, this.y + this.size + 14);
+            ctx.fillText(`HITBOX: ${this.size}px | ATK CONTACT: ${contactDist}px`, this.x, this.y + contactDist + 12);
 
             ctx.restore();
         }

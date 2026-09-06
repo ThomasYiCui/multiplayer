@@ -348,8 +348,9 @@ setInterval(() => {
             // Only steer forward when not in initial hit recoil
             if (enemy.hitStunTimer <= 0) {
                 if (nearestPlayer && minDist <= enemy.aggroRadius) {
-                    enemy.r = Math.atan2(enemy.y - nearestPlayer.y, enemy.x - nearestPlayer.x);
-                    const stopDist = enemy.size + 20;
+                    const playerRadius = nearestPlayer.size || 20;
+                    const contactDist = enemy.size + playerRadius;
+                    const stopDist = contactDist - 4;
 
                     if (minDist > stopDist) {
                         const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
@@ -358,8 +359,8 @@ setInterval(() => {
                         moveVy = Math.sin(angle) * currentSpeed;
                     }
 
-                    // Enemy Attacks Player
-                    if (minDist <= enemy.size + 28 && enemy.attackCooldownTimer <= 0) {
+                    // Enemy Attacks Player ONLY on physical contact
+                    if (minDist <= contactDist && enemy.attackCooldownTimer <= 0) {
                         enemy.attackCooldownTimer = enemy.attackInterval;
                         enemy.isAttacking = true;
                         enemy.attackSwingTimer = 0.35;
