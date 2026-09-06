@@ -312,27 +312,20 @@ setInterval(() => {
             const enemy = world.enemies[enemyId];
             if (enemy.isDead) continue;
 
-            // 1. Knockback Physics
-            if (Math.abs(enemy.knockbackX) > 2 || Math.abs(enemy.knockbackY) > 2) {
-                enemy.x += enemy.knockbackX * DT;
-                enemy.y += enemy.knockbackY * DT;
-                const friction = Math.pow(0.015, DT);
-                enemy.knockbackX *= friction;
-                enemy.knockbackY *= friction;
-            } else {
-                enemy.knockbackX = 0;
-                enemy.knockbackY = 0;
-            }
-
-            // 2. Timers
+            // 1. Timers
             if (enemy.hitStunTimer > 0) enemy.hitStunTimer -= DT;
             if (enemy.attackCooldownTimer > 0) enemy.attackCooldownTimer -= DT;
             if (enemy.attackSwingTimer > 0) enemy.attackSwingTimer -= DT;
             if (enemy.attackSwingTimer <= 0) enemy.isAttacking = false;
 
-            // Hit Stun: While recovering from a strike, enemy cannot walk forward or attack!
-            if (enemy.hitStunTimer > 0) {
-                continue;
+            // 2. Knockback Friction Decay
+            if (Math.abs(enemy.knockbackX) > 2 || Math.abs(enemy.knockbackY) > 2) {
+                const friction = Math.pow(0.05, DT);
+                enemy.knockbackX *= friction;
+                enemy.knockbackY *= friction;
+            } else {
+                enemy.knockbackX = 0;
+                enemy.knockbackY = 0;
             }
 
             // 3. Find Nearest Player
@@ -348,20 +341,24 @@ setInterval(() => {
                 }
             }
 
-            // 4. AI Behavior
+            // 4. Calculate AI Movement Intent Velocity
+            let moveVx = 0;
+            let moveVy = 0;
+
             if (nearestPlayer && minDist <= enemy.aggroRadius) {
                 enemy.r = Math.atan2(enemy.y - nearestPlayer.y, enemy.x - nearestPlayer.x);
                 const stopDist = enemy.size + 20;
 
                 if (minDist > stopDist) {
                     const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
-                    const currentSpeed = enemy.isAttacking ? enemy.speed * 0.4 : enemy.speed;
-                    enemy.x += Math.cos(angle) * currentSpeed * DT;
-                    enemy.y += Math.sin(angle) * currentSpeed * DT;
+                    const speedMult = enemy.hitStunTimer > 0 ? 0.75 : (enemy.isAttacking ? 0.4 : 1.0);
+                    const currentSpeed = enemy.speed * speedMult;
+                    moveVx = Math.cos(angle) * currentSpeed;
+                    moveVy = Math.sin(angle) * currentSpeed;
                 }
 
-                // Enemy attacks Player
-                if (minDist <= enemy.size + 28 && enemy.attackCooldownTimer <= 0) {
+                // Enemy Attacks Player
+                if (minDist <= enemy.size + 28 && enemy.attackCooldownTimer <= 0 && enemy.hitStunTimer <= 0) {
                     enemy.attackCooldownTimer = enemy.attackInterval;
                     enemy.isAttacking = true;
                     enemy.attackSwingTimer = 0.35;
@@ -407,10 +404,14 @@ setInterval(() => {
                 if (distFromSpawn > 250) {
                     enemy.wanderAngle = Math.atan2(enemy.spawnY - enemy.y, enemy.spawnX - enemy.x);
                 }
-                enemy.x += Math.cos(enemy.wanderAngle) * (enemy.speed * 0.45) * DT;
-                enemy.y += Math.sin(enemy.wanderAngle) * (enemy.speed * 0.45) * DT;
+                moveVx = Math.cos(enemy.wanderAngle) * (enemy.speed * 0.45);
+                moveVy = Math.sin(enemy.wanderAngle) * (enemy.speed * 0.45);
                 enemy.r = enemy.wanderAngle + Math.PI;
             }
+
+            // 5. Additive Physics Integration (Movement Velocity + Knockback Impulse)
+            enemy.x += (moveVx + enemy.knockbackX) * DT;
+            enemy.y += (moveVy + enemy.knockbackY) * DT;
         }
 
         // Broadcast World Enemies Snapshot (20 Hz)

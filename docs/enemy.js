@@ -65,18 +65,6 @@ class Enemy extends Character {
     }
 
     updateNetworkInterpolation(dt, game) {
-        // If enemy is currently undergoing active local knockback impulse, don't let historical snapshots overwrite it!
-        const isKnocked = Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2;
-        if (isKnocked) {
-            // Keep the latest snapshot anchored to the knockback position for a seamless transition
-            if (this.snapshotBuffer && this.snapshotBuffer.length > 0) {
-                const latest = this.snapshotBuffer[this.snapshotBuffer.length - 1];
-                latest.x = this.x;
-                latest.y = this.y;
-            }
-            return;
-        }
-
         const buffer = this.snapshotBuffer;
         if (!buffer || buffer.length === 0) return;
 
@@ -103,11 +91,12 @@ class Enemy extends Character {
             const targetY = s0.y + (s1.y - s0.y) * t;
 
             const dist = Math.hypot(targetX - this.x, targetY - this.y);
-            if (dist > 160) {
+            if (dist > 180) {
                 this.x = targetX;
                 this.y = targetY;
             } else {
-                const lerpRate = Math.min(1, 25 * dt);
+                const isKnocked = Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2;
+                const lerpRate = Math.min(1, (isKnocked ? 12 : 25) * dt);
                 this.x += (targetX - this.x) * lerpRate;
                 this.y += (targetY - this.y) * lerpRate;
             }
