@@ -65,11 +65,23 @@ class Enemy extends Character {
     }
 
     updateNetworkInterpolation(dt, game) {
+        // If enemy is currently undergoing active local physical knockback, anchor snapshots so past network packets NEVER pull it backwards!
+        const isKnocked = Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2;
+        if (isKnocked) {
+            if (this.snapshotBuffer && this.snapshotBuffer.length > 0) {
+                for (let i = 0; i < this.snapshotBuffer.length; i++) {
+                    this.snapshotBuffer[i].x = this.x;
+                    this.snapshotBuffer[i].y = this.y;
+                }
+            }
+            return;
+        }
+
         const buffer = this.snapshotBuffer;
         if (!buffer || buffer.length === 0) return;
 
         const ping = (game && game.network && game.network.ping) ? game.network.ping : 35;
-        const interpDelay = Math.max(30, Math.min(75, ping * 0.75));
+        const interpDelay = Math.max(25, Math.min(65, ping * 0.7));
         const renderTime = Date.now() - interpDelay;
 
         let s0 = null;
@@ -95,8 +107,7 @@ class Enemy extends Character {
                 this.x = targetX;
                 this.y = targetY;
             } else {
-                const isKnocked = Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2;
-                const lerpRate = Math.min(1, (isKnocked ? 12 : 25) * dt);
+                const lerpRate = Math.min(1, 25 * dt);
                 this.x += (targetX - this.x) * lerpRate;
                 this.y += (targetY - this.y) * lerpRate;
             }
@@ -319,13 +330,21 @@ class Enemy extends Character {
 
         // 4. Debug Hitbox
         if (game && game.showHitboxes) {
+            ctx.save();
             ctx.strokeStyle = '#ef4444';
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
-            ctx.lineWidth = 1.5;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+            ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
+
+            // Center pivot dot
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
 
         ctx.restore();
