@@ -405,7 +405,10 @@ class Game {
         this.network.onAuthSuccess = (user) => {
             this.currentUser = user;
             this.updateUserProfileUI(user);
-            this.showScreen('worldScreen');
+            const authScreen = document.getElementById('authScreen');
+            if (authScreen && authScreen.style.display !== 'none') {
+                this.showScreen('worldScreen');
+            }
         };
 
         this.network.onUserStatsUpdate = (user) => {

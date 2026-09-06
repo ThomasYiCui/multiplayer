@@ -234,6 +234,7 @@ function createInitialWorldEnemies(worldId) {
             r: 0,
             wanderAngle: Math.random() * Math.PI * 2,
             wanderTimer: Math.random() * 2 + 1.5,
+            hitStunTimer: 0,
             attackCooldownTimer: Math.random() * 0.5,
             attackSwingTimer: 0,
             isAttacking: false,
@@ -324,9 +325,15 @@ setInterval(() => {
             }
 
             // 2. Timers
+            if (enemy.hitStunTimer > 0) enemy.hitStunTimer -= DT;
             if (enemy.attackCooldownTimer > 0) enemy.attackCooldownTimer -= DT;
             if (enemy.attackSwingTimer > 0) enemy.attackSwingTimer -= DT;
             if (enemy.attackSwingTimer <= 0) enemy.isAttacking = false;
+
+            // Hit Stun: While recovering from a strike, enemy cannot walk forward or attack!
+            if (enemy.hitStunTimer > 0) {
+                continue;
+            }
 
             // 3. Find Nearest Player
             let nearestPlayer = null;
@@ -945,6 +952,9 @@ io.on('connection', (socket) => {
         const angle = pushAngle !== undefined ? pushAngle : Math.atan2(enemy.y - attacker.y, enemy.x - attacker.x);
         const force = pushForce || 600;
 
+        enemy.hitStunTimer = 0.35; // Stun enemy so knockback takes full effect without walking forward
+        enemy.attackCooldownTimer = Math.max(enemy.attackCooldownTimer, 0.45); // Cancel and reset attack timer
+        enemy.isAttacking = false;
         enemy.knockbackX = Math.cos(angle) * force;
         enemy.knockbackY = Math.sin(angle) * force;
 
