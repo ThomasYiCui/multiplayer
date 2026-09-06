@@ -771,8 +771,9 @@ class Game {
         if (this.particles && Array.isArray(this.particles)) {
             for (let i = this.particles.length - 1; i >= 0; i--) {
                 const p = this.particles[i];
-                p.update(dt);
-                if (p.isDead()) {
+                if (p.update) p.update(dt);
+                const dead = typeof p.isDead === 'function' ? p.isDead() : (p.life <= 0 || p.transparency <= 0);
+                if (dead) {
                     this.particles.splice(i, 1);
                 }
             }
@@ -782,8 +783,9 @@ class Game {
         if (this.damageCounters && Array.isArray(this.damageCounters)) {
             for (let i = this.damageCounters.length - 1; i >= 0; i--) {
                 const dc = this.damageCounters[i];
-                dc.update(dt);
-                if (dc.isDead()) {
+                if (dc.update) dc.update(dt);
+                const dead = typeof dc.isDead === 'function' ? dc.isDead() : (dc.life <= 0 || dc.alpha <= 0);
+                if (dead) {
                     this.damageCounters.splice(i, 1);
                 }
             }

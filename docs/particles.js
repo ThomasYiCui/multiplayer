@@ -1,37 +1,62 @@
 class Particle {
-    constructor(x, y, life, options) {
+    constructor(x, y, life = 0.4, options = {}) {
         this.x = x;
         this.y = y;
         this.life = life;
+        this.maxLife = life;
 
         this.anchorObject = options.anchorObject || null;
-        this.vX = options.vX || 0;
-        this.vY = options.vY || 0;
-        this.drag = options.drag || 0.97;
+        this.vX = options.vX !== undefined ? options.vX : (options.vx || 0);
+        this.vY = options.vY !== undefined ? options.vY : (options.vy || 0);
+        this.gravity = options.gravity || 0;
+        this.drag = options.drag !== undefined ? options.drag : 0.97;
 
         this.color = options.color || [255, 0, 0];
-        this.size = options.size || 10;
-        this.transparencyStart = options.transparencyStart || 0.5;
+        this.size = options.size || 5;
+        this.transparencyStart = options.transparencyStart !== undefined ? options.transparencyStart : 1.0;
         this.transparency = this.transparencyStart;
-        this.transparencyEnd = options.transparencyEnd || 0.1;
+        this.transparencyEnd = options.transparencyEnd !== undefined ? options.transparencyEnd : 0.0;
     }
 
     display(ctx) {
-        ctx.fillStyle = `rgb(${this.color[0]}, ${this.color[1]}, ${this.color[2]}, ${this.transparency})`
+        if (this.transparency <= 0) return;
+        ctx.save();
+        const posX = this.anchorObject ? (this.x + this.anchorObject.x) : this.x;
+        const posY = this.anchorObject ? (this.y + this.anchorObject.y) : this.y;
+        const alpha = Math.max(0, Math.min(1, this.transparency));
+
+        if (Array.isArray(this.color)) {
+            ctx.fillStyle = `rgba(${this.color[0]}, ${this.color[1]}, ${this.color[2]}, ${alpha})`;
+        } else if (typeof this.color === 'string') {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = this.color;
+        } else {
+            ctx.fillStyle = `rgba(239, 68, 68, ${alpha})`;
+        }
+
         ctx.beginPath();
-        ctx.ellipse(this.x + this.anchorObject.x, this.y + this.anchorObject.y, this.size, this.size, 0, 0, Math.PI * 2);
+        ctx.arc(posX, posY, Math.max(0.5, this.size), 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
     }
 
-    update() {
-        this.life -= 1;
+    update(dt = 0.016) {
+        const step = dt > 0.5 ? 1 : dt;
+        this.life -= step;
 
-        this.transparency = this.transparencyStart + (this.transparencyEnd - this.transparencyStart) * (this.life / this.maxLife);
+        const progress = this.maxLife > 0 ? Math.max(0, Math.min(1, this.life / this.maxLife)) : 0;
+        this.transparency = this.transparencyEnd + (this.transparencyStart - this.transparencyEnd) * progress;
 
-        this.x += this.vX;
-        this.y += this.vY;
+        this.vY += this.gravity * (step < 0.5 ? step * 60 : 1);
+        this.x += this.vX * (step < 0.5 ? step * 60 : 1);
+        this.y += this.vY * (step < 0.5 ? step * 60 : 1);
 
-        this.vX *= this.drag;
-        this.vY *= this.drag;
+        const dragFactor = Math.pow(this.drag, step < 0.5 ? step * 60 : 1);
+        this.vX *= dragFactor;
+        this.vY *= dragFactor;
+    }
+
+    isDead() {
+        return this.life <= 0 || this.transparency <= 0;
     }
 }
