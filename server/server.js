@@ -974,8 +974,8 @@ io.on('connection', (socket) => {
                 }
                 saveUserStats(currentUser);
 
-                // Sync updated stats to attacker client
-                socket.emit('authSuccess', { user: currentUser });
+                // Sync updated stats to attacker client without re-triggering login navigation
+                socket.emit('userStatsUpdate', { user: currentUser });
             }
 
             io.to(currentWorld).emit('enemyDied', {

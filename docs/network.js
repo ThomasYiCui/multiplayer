@@ -54,6 +54,13 @@ class NetworkManager {
             if (this.onAuthSuccess) this.onAuthSuccess(data.user);
         });
 
+        this.socket.on('userStatsUpdate', (data) => {
+            if (data && data.user) {
+                this.currentUser = data.user;
+                if (this.onUserStatsUpdate) this.onUserStatsUpdate(data.user);
+            }
+        });
+
         this.socket.on('authError', (msg) => {
             console.warn('[Network] Auth error:', msg);
             if (this.onAuthError) this.onAuthError(msg);

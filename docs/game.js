@@ -408,6 +408,20 @@ class Game {
             this.showScreen('worldScreen');
         };
 
+        this.network.onUserStatsUpdate = (user) => {
+            this.currentUser = user;
+            if (this.players && this.selfId && this.players[this.selfId]) {
+                const p = this.players[this.selfId];
+                p.level = user.level || p.level;
+                p.xp = user.xp || 0;
+                p.maxXp = (user.level || 1) * 100;
+                p.gold = user.gold || 0;
+                p.hp = user.hp !== undefined ? user.hp : p.hp;
+                p.maxHp = user.maxHp || p.maxHp;
+            }
+            this.updateUserProfileUI(user);
+        };
+
         this.network.onAuthError = (msg) => {
             this.showAuthError(msg);
         };

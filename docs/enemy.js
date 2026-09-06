@@ -65,11 +65,23 @@ class Enemy extends Character {
     }
 
     updateNetworkInterpolation(dt, game) {
+        // If enemy is currently undergoing active local knockback impulse, don't let historical snapshots overwrite it!
+        const isKnocked = Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2;
+        if (isKnocked) {
+            // Keep the latest snapshot anchored to the knockback position for a seamless transition
+            if (this.snapshotBuffer && this.snapshotBuffer.length > 0) {
+                const latest = this.snapshotBuffer[this.snapshotBuffer.length - 1];
+                latest.x = this.x;
+                latest.y = this.y;
+            }
+            return;
+        }
+
         const buffer = this.snapshotBuffer;
         if (!buffer || buffer.length === 0) return;
 
-        const ping = (game && game.network && game.network.ping) ? game.network.ping : 50;
-        const interpDelay = Math.max(50, Math.min(150, ping * 1.2));
+        const ping = (game && game.network && game.network.ping) ? game.network.ping : 35;
+        const interpDelay = Math.max(30, Math.min(75, ping * 0.75));
         const renderTime = Date.now() - interpDelay;
 
         let s0 = null;
@@ -87,15 +99,25 @@ class Enemy extends Character {
             const timeDelta = s1.time - s0.time;
             const t = timeDelta > 0 ? Math.max(0, Math.min(1, (renderTime - s0.time) / timeDelta)) : 1;
 
-            this.x = s0.x + (s1.x - s0.x) * t;
-            this.y = s0.y + (s1.y - s0.y) * t;
+            const targetX = s0.x + (s1.x - s0.x) * t;
+            const targetY = s0.y + (s1.y - s0.y) * t;
+
+            const dist = Math.hypot(targetX - this.x, targetY - this.y);
+            if (dist > 160) {
+                this.x = targetX;
+                this.y = targetY;
+            } else {
+                const lerpRate = Math.min(1, 25 * dt);
+                this.x += (targetX - this.x) * lerpRate;
+                this.y += (targetY - this.y) * lerpRate;
+            }
 
             let diff = (s1.r - s0.r) % (Math.PI * 2);
             if (diff < -Math.PI) diff += Math.PI * 2;
             if (diff > Math.PI) diff -= Math.PI * 2;
             this.r = s0.r + diff * t;
         } else if (s0) {
-            const lerpRate = Math.min(1, 20 * dt);
+            const lerpRate = Math.min(1, 25 * dt);
             this.x += (s0.x - this.x) * lerpRate;
             this.y += (s0.y - this.y) * lerpRate;
             let diff = (s0.r - this.r) % (Math.PI * 2);
@@ -110,23 +132,23 @@ class Enemy extends Character {
         this.hitFlash = 0.2;
         this.hitCooldown = 0.25;
 
-        if (game && game.spawnDamageCounter) {
-            game.spawnDamageCounter(this.x, this.y - this.size - 18, damage, '#ef4444');
-        }
+        const isSelfAttacker = (game && game.selfId && attackerId === game.selfId);
+        if (!isSelfAttacker) {
+            if (game && game.spawnDamageCounter) {
+                game.spawnDamageCounter(this.x, this.y - this.size - 18, damage, '#ef4444');
+            }
 
-        const angle = pushAngle !== undefined ? pushAngle : Math.random() * Math.PI * 2;
-        const force = pushForce || 600;
-        this.applyKnockback(angle, force);
+            const angle = pushAngle !== undefined ? pushAngle : Math.random() * Math.PI * 2;
+            const force = pushForce || 600;
+            this.applyKnockback(angle, force);
+
+            if (game && game.spawnBlood) {
+                game.spawnBlood(this.x, this.y, this.bloodColor, newHp <= 0 ? 26 : 10, angle, newHp <= 0);
+            }
+        }
 
         if (this.hp <= 0) {
             this.isDead = true;
-            if (game && game.spawnBlood) {
-                game.spawnBlood(this.x, this.y, this.bloodColor, 26, angle, true);
-            }
-        } else {
-            if (game && game.spawnBlood) {
-                game.spawnBlood(this.x, this.y, this.bloodColor, 10, angle, false);
-            }
         }
     }
 
