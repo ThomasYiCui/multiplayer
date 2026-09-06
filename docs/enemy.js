@@ -65,23 +65,11 @@ class Enemy extends Character {
     }
 
     updateNetworkInterpolation(dt, game) {
-        // If enemy is currently undergoing active local physical knockback, anchor snapshots so past network packets NEVER pull it backwards!
-        const isKnocked = Math.abs(this.knockbackX) > 2 || Math.abs(this.knockbackY) > 2;
-        if (isKnocked) {
-            if (this.snapshotBuffer && this.snapshotBuffer.length > 0) {
-                for (let i = 0; i < this.snapshotBuffer.length; i++) {
-                    this.snapshotBuffer[i].x = this.x;
-                    this.snapshotBuffer[i].y = this.y;
-                }
-            }
-            return;
-        }
-
         const buffer = this.snapshotBuffer;
         if (!buffer || buffer.length === 0) return;
 
         const ping = (game && game.network && game.network.ping) ? game.network.ping : 35;
-        const interpDelay = Math.max(25, Math.min(65, ping * 0.7));
+        const interpDelay = Math.max(25, Math.min(60, ping * 0.7));
         const renderTime = Date.now() - interpDelay;
 
         let s0 = null;
@@ -107,7 +95,7 @@ class Enemy extends Character {
                 this.x = targetX;
                 this.y = targetY;
             } else {
-                const lerpRate = Math.min(1, 25 * dt);
+                const lerpRate = Math.min(1, 15 * dt);
                 this.x += (targetX - this.x) * lerpRate;
                 this.y += (targetY - this.y) * lerpRate;
             }
@@ -117,13 +105,13 @@ class Enemy extends Character {
             if (diff > Math.PI) diff -= Math.PI * 2;
             this.r = s0.r + diff * t;
         } else if (s0) {
-            const lerpRate = Math.min(1, 25 * dt);
+            const lerpRate = Math.min(1, 15 * dt);
             this.x += (s0.x - this.x) * lerpRate;
             this.y += (s0.y - this.y) * lerpRate;
             let diff = (s0.r - this.r) % (Math.PI * 2);
             if (diff < -Math.PI) diff += Math.PI * 2;
             if (diff > Math.PI) diff -= Math.PI * 2;
-            this.r += diff * Math.min(1, 25 * dt);
+            this.r += diff * Math.min(1, 15 * dt);
         }
     }
 
@@ -331,19 +319,40 @@ class Enemy extends Character {
         // 4. Debug Hitbox
         if (game && game.showHitboxes) {
             ctx.save();
-            ctx.strokeStyle = '#ef4444';
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+            // Outer dashed neon circle
+            ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size + 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Solid collision boundary (Glowing Cyan/Green)
+            ctx.strokeStyle = '#22c55e';
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.25)';
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
-            // Center pivot dot
-            ctx.fillStyle = '#fca5a5';
+            // Center crosshair
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(this.x - 5, this.y);
+            ctx.lineTo(this.x + 5, this.y);
+            ctx.moveTo(this.x, this.y - 5);
+            ctx.lineTo(this.x, this.y + 5);
+            ctx.stroke();
+
+            // Hitbox size label
+            ctx.font = 'bold 9px monospace';
+            ctx.fillStyle = '#38bdf8';
+            ctx.textAlign = 'center';
+            ctx.fillText(`HITBOX: ${this.size}px`, this.x, this.y + this.size + 14);
+
             ctx.restore();
         }
 

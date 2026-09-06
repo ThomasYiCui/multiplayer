@@ -345,68 +345,70 @@ setInterval(() => {
             let moveVx = 0;
             let moveVy = 0;
 
-            if (nearestPlayer && minDist <= enemy.aggroRadius) {
-                enemy.r = Math.atan2(enemy.y - nearestPlayer.y, enemy.x - nearestPlayer.x);
-                const stopDist = enemy.size + 20;
+            // Only steer forward when not in initial hit recoil
+            if (enemy.hitStunTimer <= 0) {
+                if (nearestPlayer && minDist <= enemy.aggroRadius) {
+                    enemy.r = Math.atan2(enemy.y - nearestPlayer.y, enemy.x - nearestPlayer.x);
+                    const stopDist = enemy.size + 20;
 
-                if (minDist > stopDist) {
-                    const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
-                    const speedMult = enemy.hitStunTimer > 0 ? 0.75 : (enemy.isAttacking ? 0.4 : 1.0);
-                    const currentSpeed = enemy.speed * speedMult;
-                    moveVx = Math.cos(angle) * currentSpeed;
-                    moveVy = Math.sin(angle) * currentSpeed;
-                }
-
-                // Enemy Attacks Player
-                if (minDist <= enemy.size + 28 && enemy.attackCooldownTimer <= 0 && enemy.hitStunTimer <= 0) {
-                    enemy.attackCooldownTimer = enemy.attackInterval;
-                    enemy.isAttacking = true;
-                    enemy.attackSwingTimer = 0.35;
-
-                    nearestPlayer.hp = Math.max(0, nearestPlayer.hp - enemy.damage);
-                    const pushAngle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
-
-                    io.to(world.id).emit('playerDamaged', {
-                        targetId: nearestPlayer.id,
-                        attackerId: enemy.id,
-                        damage: enemy.damage,
-                        hp: nearestPlayer.hp,
-                        maxHp: nearestPlayer.maxHp,
-                        pushAngle: pushAngle,
-                        pushForce: 450
-                    });
-
-                    if (nearestPlayer.hp <= 0) {
-                        setTimeout(() => {
-                            if (world.players[nearestPlayer.id]) {
-                                world.players[nearestPlayer.id].hp = world.players[nearestPlayer.id].maxHp;
-                                world.players[nearestPlayer.id].x = Math.floor(Math.random() * 400) + 100;
-                                world.players[nearestPlayer.id].y = Math.floor(Math.random() * 300) + 100;
-
-                                io.to(world.id).emit('playerRespawned', {
-                                    id: nearestPlayer.id,
-                                    hp: world.players[nearestPlayer.id].hp,
-                                    x: world.players[nearestPlayer.id].x,
-                                    y: world.players[nearestPlayer.id].y
-                                });
-                            }
-                        }, 2000);
+                    if (minDist > stopDist) {
+                        const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
+                        const currentSpeed = enemy.isAttacking ? enemy.speed * 0.4 : enemy.speed;
+                        moveVx = Math.cos(angle) * currentSpeed;
+                        moveVy = Math.sin(angle) * currentSpeed;
                     }
+
+                    // Enemy Attacks Player
+                    if (minDist <= enemy.size + 28 && enemy.attackCooldownTimer <= 0) {
+                        enemy.attackCooldownTimer = enemy.attackInterval;
+                        enemy.isAttacking = true;
+                        enemy.attackSwingTimer = 0.35;
+
+                        nearestPlayer.hp = Math.max(0, nearestPlayer.hp - enemy.damage);
+                        const pushAngle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
+
+                        io.to(world.id).emit('playerDamaged', {
+                            targetId: nearestPlayer.id,
+                            attackerId: enemy.id,
+                            damage: enemy.damage,
+                            hp: nearestPlayer.hp,
+                            maxHp: nearestPlayer.maxHp,
+                            pushAngle: pushAngle,
+                            pushForce: 450
+                        });
+
+                        if (nearestPlayer.hp <= 0) {
+                            setTimeout(() => {
+                                if (world.players[nearestPlayer.id]) {
+                                    world.players[nearestPlayer.id].hp = world.players[nearestPlayer.id].maxHp;
+                                    world.players[nearestPlayer.id].x = Math.floor(Math.random() * 400) + 100;
+                                    world.players[nearestPlayer.id].y = Math.floor(Math.random() * 300) + 100;
+
+                                    io.to(world.id).emit('playerRespawned', {
+                                        id: nearestPlayer.id,
+                                        hp: world.players[nearestPlayer.id].hp,
+                                        x: world.players[nearestPlayer.id].x,
+                                        y: world.players[nearestPlayer.id].y
+                                    });
+                                }
+                            }, 2000);
+                        }
+                    }
+                } else {
+                    // Roam around spawn anchor
+                    enemy.wanderTimer -= DT;
+                    if (enemy.wanderTimer <= 0) {
+                        enemy.wanderAngle = Math.random() * Math.PI * 2;
+                        enemy.wanderTimer = Math.random() * 3 + 1.5;
+                    }
+                    const distFromSpawn = Math.hypot(enemy.x - enemy.spawnX, enemy.y - enemy.spawnY);
+                    if (distFromSpawn > 250) {
+                        enemy.wanderAngle = Math.atan2(enemy.spawnY - enemy.y, enemy.spawnX - enemy.x);
+                    }
+                    moveVx = Math.cos(enemy.wanderAngle) * (enemy.speed * 0.45);
+                    moveVy = Math.sin(enemy.wanderAngle) * (enemy.speed * 0.45);
+                    enemy.r = enemy.wanderAngle + Math.PI;
                 }
-            } else {
-                // Roam around spawn anchor
-                enemy.wanderTimer -= DT;
-                if (enemy.wanderTimer <= 0) {
-                    enemy.wanderAngle = Math.random() * Math.PI * 2;
-                    enemy.wanderTimer = Math.random() * 3 + 1.5;
-                }
-                const distFromSpawn = Math.hypot(enemy.x - enemy.spawnX, enemy.y - enemy.spawnY);
-                if (distFromSpawn > 250) {
-                    enemy.wanderAngle = Math.atan2(enemy.spawnY - enemy.y, enemy.spawnX - enemy.x);
-                }
-                moveVx = Math.cos(enemy.wanderAngle) * (enemy.speed * 0.45);
-                moveVy = Math.sin(enemy.wanderAngle) * (enemy.speed * 0.45);
-                enemy.r = enemy.wanderAngle + Math.PI;
             }
 
             // 5. Additive Physics Integration (Movement Velocity + Knockback Impulse)
